@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#071015">
+  <meta name="description" content="Explore real NISAR research data, radar coherence and independent GNSS comparisons. TerraShift — See the Earth move.">
+  <title>TerraShift — See the Earth move.</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="maplibre-gl.css"><link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+<svg class="symbols" aria-hidden="true"><defs>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 10 6-10 6L2 9Z M3 13l9 5 9-5 M3 17l9 5 9-5"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+</defs></svg>
+<header class="topbar">
+  <a href="./" class="brand" aria-label="TerraShift home"><svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true"><path d="m3 23 15-9 15 9M3 16l15-9 15 9M8 28l10-6 10 6"/></svg><span>TERRA<span class="brand-light">SHIFT</span><small>SEE THE EARTH MOVE.</small></span></a>
+  <nav aria-label="Main navigation"><button class="nav-active" id="explore-nav">Explore <span class="nav-dot"></span></button><button id="method-nav">The science <span>↗</span></button></nav>
+  <div class="top-status"><span class="status-dot"></span> REAL NASA NISAR DATA <span class="version">RESEARCH PREVIEW</span></div>
+  <a class="repo-link" href="https://github.com/snslighting/terrashift" target="_blank" rel="noopener">GitHub ↗</a>
+</header>
+<main class="workspace">
+  <aside class="sidebar" aria-label="Study selection">
+    <div class="sidebar-heading"><span class="eyebrow">EARTH OBSERVATION</span><h1>Change starts<br>below the surface<span>.</span></h1><p>Explore the evidence behind<br>Earth’s smallest movements.</p></div>
+    <div class="sidebar-section-heading"><span class="eyebrow">STUDY AREAS</span><span class="counter">03</span></div>
+    <div class="cases" role="group" aria-label="Study areas">
+      <button class="case active" data-case="california"><span class="case-number">01</span><span><strong>San Joaquin Valley</strong><small>California, United States</small><span class="case-tag"><i></i> 2 ACQUISITION PAIRS</span></span><span class="case-arrow">↗</span></button>
+      <button class="case" data-case="flores"><span class="case-number">02</span><span><strong>Flores Island</strong><small>East Nusa Tenggara, Indonesia</small><span class="case-tag muted">QUALITY AUDIT</span></span><span class="case-arrow">↗</span></button>
+      <button class="case" data-case="venezuela"><span class="case-number">03</span><span><strong>Coastal Venezuela</strong><small>Caracas region, Venezuela</small><span class="case-tag muted">QUALITY AUDIT</span></span><span class="case-arrow">↗</span></button>
+    </div>
+    <section class="mission-note"><svg><use href="#i-globe"/></svg><span class="eyebrow">A NEW PERSPECTIVE</span><p>Radar can reveal changes<br>optical imagery can’t.</p><button id="about-link">How interferometry works <span>↗</span></button></section>
+    <div class="sidebar-footer"><span class="orbit-dot"></span><span>NASA–ISRO SAR<small>L-BAND · EARTH OBSERVATION</small></span><span class="signal">▂▄▆</span></div>
+  </aside>
+  <section class="map-workspace" aria-label="Interactive Earth observation map">
+    <div id="map" aria-label="Interactive study map"></div>
+    <div class="map-top"><div class="map-title"><span class="eyebrow" id="map-breadcrumb">UNITED STATES / CALIFORNIA</span><h2 id="map-heading">San Joaquin Valley</h2><span class="map-subtitle" id="map-subtitle">36.50° N &nbsp; 120.35° W <span>•</span> DESCENDING ORBIT</span></div><div class="search-wrap"><svg><use href="#i-search"/></svg><input id="search" aria-label="Search regions or GNSS stations" placeholder="Find a region or station…" autocomplete="off"><div id="search-results" hidden></div></div></div>
+    <div class="map-message" id="map-message" role="status" hidden></div>
+    <div class="map-tools"><button id="reset-view" aria-label="Fit study area" title="Fit study area"><svg><use href="#i-target"/></svg></button><button id="basemap-toggle" aria-label="Switch to dark basemap" title="Switch basemap"><svg><use href="#i-globe"/></svg></button></div>
+    <div class="map-caption"><span class="live-square"></span><span id="map-caption">COHERENCE / REAL NISAR OBSERVATIONS</span></div>
+    <section class="layer-control" aria-label="Map layers"><div class="layer-heading"><svg><use href="#i-layers"/></svg><span>Map layers</span><button id="layer-collapse" aria-label="Collapse map layers" aria-expanded="true">−</button></div><div id="layer-body"><label><input type="checkbox" id="coherence-toggle" checked><span class="layer-swatch"></span>Radar coherence</label><label><input type="checkbox" id="stations-toggle" checked><span class="station-swatch"></span>GNSS stations</label><label class="opacity-label">Layer opacity <input id="opacity" aria-label="Coherence layer opacity" type="range" min="0" max="100" value="75"></label><div class="coherence-legend"><span>0</span><div></div><span>1</span></div><small>Lower coherence <span>Higher coherence</span></small></div></section>
+    <div class="coordinate-display" id="coordinates">MOVE OVER THE MAP TO INSPECT</div>
+    <section class="timeline" aria-label="Acquisition pair selection"><div class="timeline-label"><span class="eyebrow">ACQUISITION PAIRS</span><small>2026 <span>UTC</span></small></div><div class="timeline-track"><button class="epoch active" data-pair="0"><span class="epoch-line"><i></i><i></i></span><strong>29 JUN <span>→</span> 11 JUL</strong><small>12 days · Pair 01</small></button><button class="epoch" data-pair="1"><span class="epoch-line"><i></i><i></i></span><strong>11 JUL <span>→</span> 23 JUL</strong><small>12 days · Pair 02</small></button></div><div class="timeline-note"><span class="status-dot amber"></span> DEVELOPMENT DATA<small>No validated motion claim</small></div></section>
+  </section>
+  <aside class="inspector" aria-label="Scientific evidence inspector"><div class="inspector-header"><svg><use href="#i-target"/></svg><span>EVIDENCE INSPECTOR</span><span class="inspector-dot"></span></div><div id="inspector-content" aria-live="polite"><p class="loading">Loading research evidence…</p></div><div class="inspector-bottom"><button id="download-evidence"><svg><use href="#i-download"/></svg>Download evidence <span>JSON</span></button><p>Open data. Transparent methods.<br>No shortcuts to scientific confidence.</p></div></aside>
+</main>
+<footer class="statusbar"><span><i></i> <span id="system-status">CONNECTING TO MAP</span></span><span>PUBLIC RESEARCH VIEWER <b>/</b> NISAR GUNW · PROVISIONAL</span><button id="limitations-link">Measurement limitations <svg><use href="#i-info"/></svg></button></footer>
+<dialog id="method-dialog"><button class="dialog-close" aria-label="Close science explanation"><svg><use href="#i-close"/></svg></button><span class="eyebrow">THE SCIENCE / TERRASHIFT</span><h2>Small changes.<br>Strong evidence.</h2><p>NISAR compares radar observations to measure changes along the satellite’s line of sight. TerraShift inspects the phase, correction layers, spatial support and independent GNSS observations before making a ground-motion claim.</p><div class="method-steps"><div><span>01</span><h3>Observe</h3><p>Real provisional NASA–ISRO NISAR GUNW products. No synthetic surface movement.</p></div><div><span>02</span><h3>Check</h3><p>Coherence, masks, connected components, atmospheric corrections and a shared spatial reference.</p></div><div><span>03</span><h3>Validate</h3><p>Compare with independent GNSS. Preserve failed comparisons and unknown uncertainty.</p></div></div><div class="science-warning"><strong>Research preview · validation has not passed</strong><p>The California comparisons contain unresolved discrepancies. Candidate LOS values are not certified ground movement. Coherence is not a confidence interval; supplied ionospheric uncertainty is only one error component. Total displacement uncertainty is unknown. No vertical displacement, annual trend or earthquake prediction is claimed.</p></div><p class="small-print">This GitHub Pages site displays preprocessed research exports. It does not run authenticated NASA downloads or HDF5 processing in your browser. The coherence overlay is a reduced visualization of accepted pixels; basemap imagery is geographic context, not NISAR imagery.</p><div class="source-links"><a href="https://nisar-docs.asf.alaska.edu/gunw/" target="_blank" rel="noopener">NASA / ASF product guide ↗</a><a href="https://geodesy.unr.edu/PlugNPlayPortal.php" target="_blank" rel="noopener">NGL GNSS source ↗</a></div></dialog>
+<noscript>This interactive map needs JavaScript. Research validation has not passed; no ground-motion claims are certified.</noscript>
+</body></html>
