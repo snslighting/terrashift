@@ -1,0 +1,52 @@
+name: TerraShift 2.0 Pages
+on:
+  push:
+    branches: [main]
+    paths: ['terrashift-source.zip', '.github/workflows/pages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: terrashift-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Extract reviewed source distribution
+        run: unzip -q terrashift-source.zip -d .build/source
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify scientific and API contracts
+        working-directory: .build/source
+        run: |
+          python -m pip install uv
+          uv sync --locked --extra api --extra dev
+          uv run --extra api --extra dev pytest -q
+          uv run --extra api --extra dev ruff check src scripts tests
+      - name: Test and build frontend
+        working-directory: .build/source/frontend
+        run: |
+          npm ci
+          npm test -- --run
+          npm run build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: .build/source/website-v2
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
