@@ -18,6 +18,19 @@
 .legend p {
   line-height: 1.55;
 }
+.legend-ticks {
+  gap: 10px;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+.legend-ticks span:last-child {
+  text-align: right;
+}
+
+/* Draw tools sit below MapLibre's zoom + compass group (3 buttons) instead of over it. */
+.map-tools {
+  top: 108px;
+}
 
 /* ---------- Map legend: collapsible ---------- */
 .map-legend {
@@ -176,7 +189,7 @@
   margin: 0;
   font-size: 14px;
   letter-spacing: 0.02em;
-  flex: 1;
+  flex: 1 1 auto;
 }
 .confidence p {
   font-size: 13px;
@@ -456,9 +469,17 @@
     left: 12px;
     right: 12px;
     top: auto;
-    bottom: 12px;
+    bottom: 56px;
     width: auto;
     max-height: 45%;
+  }
+  /* Bottom edge, bottom-up: attribution, hint, then the result panel. The coordinate
+     readout only updates on mouse hover, so phones drop it. */
+  .map-coordinate {
+    display: none;
+  }
+  .map-hint {
+    bottom: 36px;
   }
   .map-result-panel.minimized {
     max-height: 64px;
@@ -473,6 +494,15 @@
   }
   .map-legend.closed {
     width: auto;
+  }
+  /* An opened legend may reach the result panel; keep it on top while it is open. */
+  .map-legend.open {
+    z-index: 6;
+  }
+  /* The analysis map pins its legend to the bottom; on phones that stretched it top-to-bottom. */
+  .analysis-map .map-legend {
+    top: 150px;
+    bottom: auto;
   }
   .analysis-inspector {
     position: static;
