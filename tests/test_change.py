@@ -17,7 +17,9 @@ def layers(coherence, components=None):
     coherence = np.asarray(coherence, dtype=float)
     return {
         "coherenceMagnitude": coherence,
-        "connectedComponents": np.ones_like(coherence) if components is None else np.asarray(components, float),
+        "connectedComponents": np.ones_like(coherence)
+        if components is None
+        else np.asarray(components, float),
         "inside": np.ones(coherence.shape, dtype=bool),
         "x": np.arange(coherence.shape[1]),
         "y": -np.arange(coherence.shape[0]),
