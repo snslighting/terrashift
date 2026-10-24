@@ -13,7 +13,7 @@
 
 ## Current limitations
 
-The service supports the provisional collection only. Polarization is preserved but not yet a server-side CLI filter. Polygon drawing, full catalog pagination, production jobs, API and tiles are pending. Search overlap does not guarantee good pixel coverage. Cache invalidation by NASA revision, retry/backoff/resumable downloads, disk quotas and richer job diagnostics remain to be implemented. Current large downloads are single-granule operations and temporary files are never accepted as completed cache entries.
+The pipeline supports the provisional GUNW collection, with a GCOV reader for backscatter change. Polarization is preserved but not yet a CLI filter. Full catalog pagination and a hosted processing worker are pending; polygon drawing, the API and binary display grids are implemented. Search overlap does not guarantee good pixel coverage. Cache invalidation by NASA revision, retry/backoff/resumable downloads, disk quotas and richer job diagnostics remain to be implemented. Current large downloads are single-granule operations and temporary files are never accepted as completed cache entries.
 
 The script used for the first DEM retrieval also retrieved small VRT metadata records. Only the local GeoTIFF is used; VRTs are never opened to trigger implicit remote reads. All raw files stay in ignored `data/cache`.
 
@@ -29,3 +29,8 @@ The CLI now reads authenticated HTTPS ranges with a 15-second connection timeout
 ## Research processing and independent data
 
 `prepare_layers.py` validates source version, flattening, CRS and layer units; warps official NISAR ellipsoidal DEM tiles to the scientific grid; interpolates correction/look cubes without extrapolation; and saves corrected research phase with the production gate closed. `plot_audit.py` labels plots unvalidated. `compare_gnss.py` saves exact-date NGL ENU differences, source hashes and formal covariance; it does not equate independent GNSS motion with NISAR validation.
+
+
+## TerraShift 3 export
+
+`scripts/export_v3.py` writes `frontend/public/evidence/catalog.json` (study areas, pairs, findings, limits, GNSS comparisons and residual diagnostics) and one int16 grid plus one count grid per layer under `grids/`. Layers: `disturbance` (1 − coherence on unwrapped land pixels), `los` (referenced line-of-sight motion on accepted pixels), `coherence_change` (between sequential pairs, on common native support) and `backscatter_change` (GCOV, dB). Each display cell is the mean of accepted native pixels whose centres fall in it; counts are exact and empty cells stay empty. See ACQUIRE.md for adding data.

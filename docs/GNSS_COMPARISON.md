@@ -1,8 +1,8 @@
-# Independent GNSS comparison — 6 October 2026
+# Independent GNSS comparison â€” 6 October 2026
 
 **Result: validation gate remains closed.** These are development observations, not a completed displacement validation.
 
-The same real NISAR pair (29 June–11 July 2026, track 42/frame 70, descending) was compared against NGL IGS20 daily solutions. Each GNSS ENU change was projected using the actual NISAR look geometry. Both radar and GNSS results use the same P287 reference. Radar neighborhoods are 500 m in radius and remain within one phase connected component.
+The same real NISAR pair (29 Juneâ€“11 July 2026, track 42/frame 70, descending) was compared against NGL IGS20 daily solutions. Each GNSS ENU change was projected using the actual NISAR look geometry. Both radar and GNSS results use the same P287 reference. Radar neighborhoods are 500 m in radius and remain within one phase connected component.
 
 P287 was selected because it has 126 accepted pixels, median coherence about 0.87, low spatial phase dispersion (MAD about 0.039 radians), and a GNSS LOS change of about 4 mm with 3 mm formal uncertainty. The reference is not assumed to be exactly motionless. Its measured GNSS change is removed from each comparison.
 
@@ -33,7 +33,7 @@ The next scientific requirement is to distinguish residual atmosphere/ionosphere
 
 ## Venezuela outcome
 
-The June 13–25 earthquake GUNW passed NASA checksum verification and was processed with official ellipsoidal DEMs. Strict QC retained 154 pixels; the interpolation sensitivity run retained 187,872. CCS1 has no accepted radar pixels within 500 m; the closest accepted pixel is about 15.7 km away. Therefore its independent GNSS displacement cannot serve as a co-located comparison for this product.
+The June 13â€“25 earthquake GUNW passed NASA checksum verification and was processed with official ellipsoidal DEMs. Strict QC retained 154 pixels; the interpolation sensitivity run retained 187,872. CCS1 has no accepted radar pixels within 500 m; the closest accepted pixel is about 15.7 km away. Therefore its independent GNSS displacement cannot serve as a co-located comparison for this product.
 
 ## Reproduce
 

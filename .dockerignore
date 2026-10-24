@@ -1,0 +1,12 @@
+*
+!Dockerfile
+!pyproject.toml
+!README.md
+!src/
+!src/**
+!frontend/
+!frontend/public/
+!frontend/public/evidence/
+!frontend/public/evidence/**
+**/__pycache__/
+**/*.pyc

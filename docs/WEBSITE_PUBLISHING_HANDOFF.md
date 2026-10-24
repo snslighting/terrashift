@@ -1,3 +1,5 @@
+> Historical record of the version-1 deployment. Since TerraShift 3 the repository holds the full source and GitHub Actions builds, tests and deploys it (see README).
+
 # TerraShift website deployment — 8 October 2026
 
 Deployment completed successfully.
