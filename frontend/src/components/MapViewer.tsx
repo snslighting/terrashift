@@ -66,6 +66,7 @@ export default function MapViewer(props: Props) {
   latest.current = props;
   const [ready, setReady] = useState(false),
     [error, setError] = useState(""),
+    [offlineBasemap, setOfflineBasemap] = useState(false),
     [mode, setMode] = useState<"rectangle" | "polygon" | null>(null),
     [points, setPoints] = useState<Position[]>([]),
     [coords, setCoords] = useState("WORLDWIDE · WGS84"),
@@ -123,6 +124,11 @@ export default function MapViewer(props: Props) {
           },
           layers: [
             {
+              id: "offline-background",
+              type: "background",
+              paint: { "background-color": "#0a1424" },
+            },
+            {
               id: "geographic",
               type: "raster",
               source: "geographic",
@@ -154,6 +160,30 @@ export default function MapViewer(props: Props) {
       m.addControl(new NavigationControl({ showCompass: true }), "top-right");
       m.on("load", () => {
         if (cancelled) return;
+        // Offline fallback: bundled Natural Earth country outlines beneath the tile
+        // basemaps. Tiles cover them when they load; with no network they show through.
+        m.addSource("outlines", {
+          type: "geojson",
+          data: new URL(asset("geo/countries.geojson"), location.href).href,
+        });
+        m.addLayer(
+          {
+            id: "offline-land",
+            type: "fill",
+            source: "outlines",
+            paint: { "fill-color": "#14243a" },
+          },
+          "geographic",
+        );
+        m.addLayer(
+          {
+            id: "offline-borders",
+            type: "line",
+            source: "outlines",
+            paint: { "line-color": "#5d7d99", "line-width": 0.7 },
+          },
+          "geographic",
+        );
         m.addSource("coverage", {
           type: "geojson",
           data: productCollection([]),
@@ -258,7 +288,14 @@ export default function MapViewer(props: Props) {
         p.onPoint?.(...point);
       });
       let failures = 0;
-      m.on("error", () => {
+      const basemaps = new Set(["satellite", "terrain", "geographic"]);
+      m.on("error", (e) => {
+        // Basemap tiles failing is not fatal: the offline outlines show instead.
+        const sourceId = (e as { sourceId?: string }).sourceId;
+        if (sourceId && basemaps.has(sourceId)) {
+          setOfflineBasemap(true);
+          return;
+        }
         if (++failures >= 3)
           setError(
             "Some map resources are unavailable. Evidence and search remain accessible.",
@@ -495,6 +532,12 @@ export default function MapViewer(props: Props) {
       {error && (
         <div className="map-error" role="status">
           {error}
+        </div>
+      )}
+      {offlineBasemap && !error && (
+        <div className="map-offline" role="status">
+          Basemap offline · showing country outlines. NISAR evidence is
+          unaffected.
         </div>
       )}
       <div className="map-identity">

@@ -83,8 +83,14 @@ try {
 
   await check("home leads with change types and study areas", async () => {
     await page.goto(origin + base);
-    await page.getByText("Five kinds of change.").waitFor();
-    assert.equal(await page.locator(".change-card").count(), 5);
+    // Change types with processed data get cards; the rest are listed under "Coming next".
+    const live = new Set(catalog.cases.flatMap((c) => c.change_types));
+    await page.locator(".change-card").first().waitFor();
+    assert.equal(await page.locator(".change-card").count(), live.size);
+    assert.equal(
+      (await page.locator(".change-card").count()) + (await page.locator(".change-next li").count()),
+      Object.keys(catalog.change_types).length,
+    );
     await page.locator(".case-card").first().waitFor();
     assert.equal(await page.locator(".case-card").count(), catalog.cases.length);
     await page.waitForFunction(() => document.querySelectorAll(".case-card canvas.science-raster").length > 0);
@@ -111,7 +117,17 @@ try {
     await page.goto(origin + base + "discoveries/");
     await page.locator(".earth-story").first().waitFor();
     assert.equal(await page.locator(".earth-story").count(), catalog.cases.length);
-    assert.equal(await page.locator(".confidence").count(), catalog.cases.length);
+    // Each story is a sequence of steps; findings and limits must stay reachable in every one.
+    for (const story of await page.locator(".earth-story").all()) {
+      await story.getByRole("button", { name: /^Step 2:/ }).click();
+      await story.locator(".findings li").first().waitFor();
+      await story.getByRole("button", { name: /How sure we are/ }).first().click();
+      await story.locator(".confidence").waitFor();
+    }
+    const first = page.locator(".earth-story").first();
+    await first.getByRole("button", { name: /^Step 3:/ }).click();
+    await first.getByText(/Hypotheses, not conclusions/).waitFor();
+    await page.locator(".story-applications").waitFor();
     await page.getByRole("button", { name: /Earthquake deformation/ }).click();
     const quakes = catalog.cases.filter((c) => c.change_types.includes("earthquake")).length;
     assert.equal(await page.locator(".earth-story").count(), quakes);
@@ -136,6 +152,20 @@ try {
       await page.getByText(/saw the earthquake/).waitFor();
     }
     await page.screenshot({ path: join(out, "analysis.png"), fullPage: true });
+  });
+
+  await check("analysis view is shareable through the URL", async () => {
+    const study = catalog.cases.find((c) => c.pairs.length > 1) ?? catalog.cases[0];
+    const pair = study.pairs[0];
+    const layer = Object.keys(pair.layers).at(-1);
+    await page.goto(`${origin}${base}analysis/?case=${study.id}&pair=${pair.id}&layer=${layer}&mode=side`);
+    await page.locator(".analysis-timeline .active, .analysis-summary").first().waitFor();
+    await page.waitForFunction((id) => location.search.includes(`pair=${id}`), pair.id);
+    const url = new URL(page.url());
+    assert.equal(url.searchParams.get("case"), study.id);
+    assert.equal(url.searchParams.get("pair"), pair.id);
+    assert.equal(url.searchParams.get("layer"), layer);
+    assert.equal(url.searchParams.get("mode"), "side");
   });
 
   await check("science, data and about pages render", async () => {

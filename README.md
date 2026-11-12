@@ -43,6 +43,9 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 - Worldwide place search (Photon/OpenStreetMap) or coordinates, rectangle/polygon areas, dateline handling, live NASA CMR discovery with real footprints.
 - Study-area maps with layer switching, point inspection (value plus the number of source pixels), GNSS and earthquake markers, timelines, swipe and side-by-side comparison, residual and error-structure charts.
 - JSON and CSV evidence exports with source hashes; full provenance per product.
+- Earth Stories in five steps (where and why, what the radar saw, likely drivers as hypotheses, how sure we are, why it matters), with the map following each step, plus future NISAR applications.
+- Shareable Analysis views: case, pair, layer and comparison mode live in the URL ("Copy link").
+- Works without basemap tiles: bundled country outlines show if tile servers are unreachable, and NISAR evidence is served with the site.
 - Accessible: keyboard navigation, reduced motion, phone layouts with collapsible map panels.
 - Optional FastAPI backend: proxied discovery and geocoding, study-area/grid endpoints, region jobs stored in SQLite that resume after a restart.
 
