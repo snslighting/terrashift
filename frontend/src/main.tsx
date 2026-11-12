@@ -31,22 +31,33 @@ const Home = lazy(() => import("./pages/Home")),
   Data = lazy(() => import("./pages/Data")),
   About = lazy(() => import("./pages/About"));
 class ErrorBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; resetKey: string },
   { failed: boolean }
 > {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
+  componentDidUpdate(previous: { resetKey: string }) {
+    // Navigating away from a failed view clears the error.
+    if (previous.resetKey !== this.props.resetKey && this.state.failed)
+      this.setState({ failed: false });
+  }
   render() {
     return this.state.failed ? (
       <main className="content-page">
         <Empty title="This view could not load.">
-          Refresh to retry. No substitute scientific results are generated.
+          Try again, or refresh the page. No substitute scientific results are
+          generated.
         </Empty>
-        <button className="button" onClick={() => location.reload()}>
-          Refresh TerraShift
-        </button>
+        <div className="hero-actions">
+          <button className="button" onClick={() => this.setState({ failed: false })}>
+            Try again
+          </button>
+          <button className="button secondary" onClick={() => location.reload()}>
+            Refresh TerraShift
+          </button>
+        </div>
       </main>
     ) : (
       this.props.children
@@ -114,7 +125,7 @@ function App() {
         </button>
       </header>
       <div id="main-content">
-        <ErrorBoundary>
+        <ErrorBoundary resetKey={path}>
           <AnimatePresence mode="wait">
             <motion.div
               key={path}

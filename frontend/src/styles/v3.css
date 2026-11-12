@@ -581,3 +581,48 @@
 .home-page {
   overflow-x: clip;
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Explorer date presets (computed from today, never before NISAR's launch). */
+.date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 20px 0 0;
+}
+.date-presets + .date-fields {
+  margin-top: 12px;
+}
+.date-presets button {
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: #b8c8d8;
+  background: transparent;
+  border: 1px solid #ffffff22;
+  border-radius: 999px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+.date-presets button:hover {
+  border-color: #55d9f380;
+}
+.date-presets button.active {
+  color: #04121c;
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+.date-presets button:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}

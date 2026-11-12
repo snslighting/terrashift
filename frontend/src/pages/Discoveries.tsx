@@ -21,7 +21,7 @@ function Story({ study, index }: { study: StudyCase; index: number }) {
     kinds = Object.keys(pair.layers) as LayerKind[],
     [kind, setKind] = useState<LayerKind>(study.primary_layer),
     active = pair.layers[kind] ? kind : kinds[0],
-    { grids } = useGrids(pair, kinds),
+    { grids, loading: gridsLoading } = useGrids(pair, kinds),
     [pixel, setPixel] = useState<Pixel>();
   useEffect(() => setPixel(undefined), [pair.id]);
   return (
@@ -51,7 +51,9 @@ function Story({ study, index }: { study: StudyCase; index: number }) {
             kind={active}
             grid={grids[active]}
             compact
-            onPixel={(lon, lat) => setPixel(inspect(pair, grids, lon, lat))}
+            onPixel={(lon, lat) => {
+              if (!gridsLoading) setPixel(inspect(pair, grids, lon, lat));
+            }}
           />
         </div>
         <div className="story-narration">

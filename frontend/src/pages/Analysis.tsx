@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -9,6 +9,8 @@ import {
   ArrowLeftRight,
   ChartNoAxesCombined,
   Info,
+  Link2,
+  Check,
 } from "lucide-react";
 import { useApp, useGrids } from "../lib/context";
 import { caseById } from "../lib/api";
@@ -42,7 +44,13 @@ export default function Analysis() {
     caseById(catalog, params.get("case")) ?? catalog?.cases[0];
   const [pairIndex, setPairIndex] = useState(0),
     [kind, setKind] = useState<LayerKind>("disturbance"),
-    [mode, setMode] = useState<"swipe" | "side" | "series">("swipe"),
+    // Shareable view: case, pair, layer and comparison mode live in the URL (?case=&pair=&layer=&mode=).
+    linked = useRef({ pair: params.get("pair"), layer: params.get("layer") }),
+    [mode, setMode] = useState<"swipe" | "side" | "series">(() => {
+      const m = params.get("mode");
+      return m === "side" || m === "series" ? m : "swipe";
+    }),
+    [copied, setCopied] = useState(false),
     [swipe, setSwipe] = useState(50),
     [playing, setPlaying] = useState(false),
     [pixel, setPixel] = useState<Pixel>(),
@@ -50,8 +58,16 @@ export default function Analysis() {
     [seriesStation, setSeriesStation] = useState("");
   useEffect(() => {
     if (!study) return;
-    setPairIndex(study.pairs.length - 1);
-    setKind(study.primary_layer);
+    const want = linked.current,
+      linkedPair = study.pairs.findIndex((p) => p.id === want.pair),
+      linkedLayer = want.layer as LayerKind | null;
+    linked.current = { pair: null, layer: null };
+    setPairIndex(linkedPair >= 0 ? linkedPair : study.pairs.length - 1);
+    setKind(
+      linkedLayer && study.pairs.some((p) => p.layers[linkedLayer])
+        ? linkedLayer
+        : study.primary_layer,
+    );
     setPixel(undefined);
     setStation(undefined);
     setPlaying(false);
@@ -71,7 +87,12 @@ export default function Analysis() {
   const pair = study?.pairs[Math.min(pairIndex, (study?.pairs.length ?? 1) - 1)];
   const kinds = pair ? (Object.keys(pair.layers) as LayerKind[]) : [];
   const active = pair?.layers[kind] ? kind : kinds[0];
-  const { grids, error: gridError } = useGrids(pair, kinds);
+  const {
+    grids,
+    error: gridError,
+    loading: gridsLoading,
+    retry: retryGrids,
+  } = useGrids(pair, kinds);
   useEffect(() => setPixel(undefined), [pair?.id]);
   const first = study?.pairs[0],
     last = study?.pairs.at(-1);
@@ -83,6 +104,22 @@ export default function Analysis() {
     study && study.pairs.length > 1 ? last : undefined,
     [active],
   );
+  useEffect(() => {
+    if (!study || !pair || !active) return;
+    setParams(
+      { case: study.id, pair: pair.id, layer: active, mode },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [study?.id, pair?.id, active, mode]);
+  const copyLink = () =>
+    navigator.clipboard
+      ?.writeText(window.location.href)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
   const seriesNames = useMemo(
     () =>
       Object.keys(study?.series?.stations ?? {}).filter(
@@ -164,6 +201,17 @@ export default function Analysis() {
           description={study.headline}
         />
         <div className="analysis-exports">
+          <button
+            className="button secondary"
+            onClick={copyLink}
+            aria-label="Copy a link to this exact view"
+          >
+            {copied ? <Check size={15} /> : <Link2 size={15} />}
+            {copied ? "Link copied" : "Copy link"}
+          </button>
+          <span className="visually-hidden" aria-live="polite">
+            {copied ? "Link to this view copied to the clipboard" : ""}
+          </span>
           <button className="button secondary" onClick={exportJSON}>
             <Download size={15} />
             Evidence JSON
@@ -268,7 +316,7 @@ export default function Analysis() {
           grid={grids[active]}
           onPixel={(lon, lat) => {
             setStation(undefined);
-            setPixel(inspect(pair, grids, lon, lat));
+            if (!gridsLoading) setPixel(inspect(pair, grids, lon, lat));
           }}
           onMarker={onMarker}
         />
@@ -282,7 +330,14 @@ export default function Analysis() {
           </div>
         )}
       </section>
-      {gridError && <p className="warning">{gridError}</p>}
+      {gridError && (
+        <p className="warning" role="alert">
+          {gridError}{" "}
+          <button className="text-button" onClick={retryGrids}>
+            Retry
+          </button>
+        </p>
+      )}
       <section className="story-results">
         <div>
           <h3>What changed</h3>

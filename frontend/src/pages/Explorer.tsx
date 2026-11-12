@@ -56,6 +56,21 @@ import {
   StationCard,
 } from "../components/Evidence";
 const MapViewer = lazy(() => import("../components/MapViewer"));
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+/** NISAR launched on 30 July 2025; no science products exist before it. */
+const NISAR_LAUNCH = "2025-07-30";
+/** Start date `days` before today, never earlier than launch (days < 0 means since launch). */
+function presetStart(days: number) {
+  if (days < 0) return NISAR_LAUNCH;
+  const from = isoDay(new Date(Date.now() - days * 86_400_000));
+  return from < NISAR_LAUNCH ? NISAR_LAUNCH : from;
+}
+const datePresets: [string, number][] = [
+  ["30 days", 30],
+  ["90 days", 90],
+  ["12 months", 365],
+  ["Since launch", -1],
+];
 export default function Explorer() {
   const { catalog, selection, setSelection, error: researchError } = useApp();
   const [params] = useSearchParams(),
@@ -73,7 +88,7 @@ export default function Explorer() {
     ),
     [opacity, setOpacity] = useState(0.8),
     [stations, setStations] = useState(true),
-    [start, setStart] = useState("2026-01-01"),
+    [start, setStart] = useState(() => presetStart(365)),
     [end, setEnd] = useState(new Date().toISOString().slice(0, 10)),
     [pixel, setPixel] = useState<Pixel>(),
     [station, setStation] = useState<Station>(),
@@ -127,7 +142,7 @@ export default function Explorer() {
     pair = opened?.pair,
     kinds = pair ? (Object.keys(pair.layers) as LayerKind[]) : [],
     active = pair?.layers[layer] ? layer : kinds[0],
-    { grids } = useGrids(pair, kinds);
+    { grids, loading: gridsLoading } = useGrids(pair, kinds);
   const overlay = useMemo(
     () =>
       pair && active && grids[active]
@@ -445,6 +460,26 @@ export default function Explorer() {
             <button className="text-button">Apply region</button>
           </form>
         )}
+        <div className="date-presets" role="group" aria-label="Date range presets">
+          {datePresets.map(([label, days]) => {
+            const from = presetStart(days),
+              today = isoDay(new Date());
+            return (
+              <button
+                key={label}
+                type="button"
+                className={start === from && end === today ? "active" : ""}
+                aria-pressed={start === from && end === today}
+                onClick={() => {
+                  setStart(from);
+                  setEnd(today);
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
         <div className="date-fields">
           <label>
             <CalendarDays size={13} />
@@ -655,7 +690,7 @@ export default function Explorer() {
             onMarker={onMarker}
             onPoint={(lon, lat) => {
               if (pair) {
-                setPixel(inspect(pair, grids, lon, lat));
+                if (!gridsLoading) setPixel(inspect(pair, grids, lon, lat));
                 setStation(undefined);
                 setResultOpen(true);
               } else
