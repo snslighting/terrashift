@@ -6,6 +6,7 @@ import {
   parseCoordinates,
   pointBBox,
   regionalStats,
+  areaSummary,
   splitBBox,
   stats,
 } from "./science";
@@ -38,6 +39,16 @@ describe("grids, selection and units", () => {
     expect(regionalStats(pair, grid, [-1, -1, 1, 1]).count).toBe(3);
     expect(stats([null, 0, 12, -9]).count).toBe(3);
     expect(stats([NaN]).mean).toBeNull();
+  });
+  it("summarises a drawn area without inventing missing cells", () => {
+    const a = areaSummary(pair, grid, { bbox: [-1, -1, 1, 1] }, [0, 1], 4);
+    expect(a.cells).toBe(3); // the no-data cell is left out
+    expect(a.sourcePixels).toBe(25 + 30 + 27);
+    expect(a.median).toBeCloseTo(0.6);
+    expect(a.p05).toBeCloseTo(0.3);
+    expect(a.p95).toBeCloseTo(0.9);
+    expect(a.histogram).toEqual([0, 1, 1, 1]);
+    expect(areaSummary(pair, grid, { bbox: [10, 10, 11, 11] }, [0, 1]).median).toBeNull();
   });
   it("parses coordinates and splits dateline areas", () => {
     expect(parseCoordinates("41.3, 69.24")).toEqual([69.24, 41.3]);

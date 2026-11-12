@@ -11,11 +11,18 @@ import {
   Info,
   Link2,
   Check,
+  ImageDown,
+  SquareDashed,
+  X,
+  Quote,
 } from "lucide-react";
+import { narratives } from "../lib/stories";
+import { mapImage, downloadCanvas } from "../lib/mapImage";
 import { useApp, useGrids } from "../lib/context";
 import { caseById } from "../lib/api";
 import { layerInfo, format, studyRange } from "../lib/layers";
 import {
+  areaSummary,
   downloadCSV,
   downloadJSON,
   inspect,
@@ -23,7 +30,7 @@ import {
   number,
   signed,
 } from "../lib/science";
-import type { LayerKind, MapMarker, Pixel, Station } from "../lib/types";
+import type { LayerKind, MapMarker, Pixel, Selection, Station } from "../lib/types";
 import { PageIntro, StatusBadge, Skeleton, Empty, SourceLink } from "../components/UI";
 import { Legend, Raster } from "../components/Raster";
 import { ResidualChart, SeriesChart, StructurePanel } from "../components/Charts";
@@ -37,11 +44,100 @@ import {
   StationCard,
 } from "../components/Evidence";
 
+/** Scroll to a section without putting "#name" into a hash-routed URL. */
+const jump = (id: string) => (e: React.MouseEvent) => {
+  e.preventDefault();
+  document.getElementById(id)?.scrollIntoView({
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    block: "start",
+  });
+};
+
+function AreaPanel({
+  summary,
+  kind,
+  onClear,
+}: {
+  summary?: ReturnType<typeof areaSummary>;
+  kind: LayerKind;
+  onClear: () => void;
+}) {
+  if (!summary)
+    return (
+      <p className="area-hint">
+        <SquareDashed size={15} /> Draw a rectangle or polygon on the map (tools on the right) to get
+        statistics for that area.
+      </p>
+    );
+  const peak = Math.max(1, ...summary.histogram),
+    unit = layerInfo[kind].unit,
+    [lo, hi] = summary.histogramRange;
+  return (
+    <section className="area-panel" aria-label="Statistics for the drawn area">
+      <div className="area-panel-head">
+        <h3>Selected area</h3>
+        <button className="text-button" onClick={onClear}>
+          <X size={14} /> Clear
+        </button>
+      </div>
+      {summary.cells === 0 ? (
+        <p className="muted">No accepted radar data inside this area.</p>
+      ) : (
+        <>
+          <dl className="area-stats">
+            <div>
+              <dt>Median</dt>
+              <dd>{format(kind, summary.median)}</dd>
+            </div>
+            <div>
+              <dt>Mean</dt>
+              <dd>{format(kind, summary.mean)}</dd>
+            </div>
+            <div>
+              <dt>5th – 95th percentile</dt>
+              <dd>
+                {format(kind, summary.p05)} to {format(kind, summary.p95)}
+              </dd>
+            </div>
+            <div>
+              <dt>Behind it</dt>
+              <dd>
+                {summary.cells.toLocaleString()} cells · {summary.sourcePixels.toLocaleString()} radar pixels
+              </dd>
+            </div>
+          </dl>
+          <figure className="area-histogram">
+            <svg viewBox={`0 0 ${summary.histogram.length * 10} 40`} preserveAspectRatio="none" role="img"
+              aria-label={`Histogram of ${summary.cells} cells from ${format(kind, lo)} to ${format(kind, hi)}`}>
+              {summary.histogram.map((n, i) => (
+                <rect key={i} x={i * 10 + 1} width={8} y={40 - (n / peak) * 40} height={(n / peak) * 40} />
+              ))}
+            </svg>
+            <figcaption>
+              <span>{format(kind, lo)}</span>
+              <span>Distribution of display cells{unit ? ` (${unit})` : ""}</span>
+              <span>{format(kind, hi)}</span>
+            </figcaption>
+          </figure>
+          <p className="tiny">
+            Statistics use the display cells, each the mean of its native pixels, weighted equally. The
+            histogram spans the lowest to the highest cell in the area.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function Analysis() {
   const { catalog, error } = useApp(),
     [params, setParams] = useSearchParams();
+  // With no case in the link, open on Venezuela: the clearest signal (hundreds of mm)
+  // well above the error, while California remains the validation story.
   const study =
-    caseById(catalog, params.get("case")) ?? catalog?.cases[0];
+    caseById(catalog, params.get("case")) ??
+    caseById(catalog, "venezuela-2026") ??
+    catalog?.cases[0];
   const [pairIndex, setPairIndex] = useState(0),
     [kind, setKind] = useState<LayerKind>("disturbance"),
     // Shareable view: case, pair, layer and comparison mode live in the URL (?case=&pair=&layer=&mode=).
@@ -51,6 +147,7 @@ export default function Analysis() {
       return m === "side" || m === "series" ? m : "swipe";
     }),
     [copied, setCopied] = useState(false),
+    [area, setArea] = useState<Selection>(),
     [swipe, setSwipe] = useState(50),
     [playing, setPlaying] = useState(false),
     [pixel, setPixel] = useState<Pixel>(),
@@ -70,6 +167,7 @@ export default function Analysis() {
     );
     setPixel(undefined);
     setStation(undefined);
+    setArea(undefined);
     setPlaying(false);
     const names = Object.keys(study.series?.stations ?? {}).filter(
       (n) => n !== study.series?.reference,
@@ -112,6 +210,15 @@ export default function Analysis() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [study?.id, pair?.id, active, mode]);
+  const range = study && active ? studyRange(study, active) : ([0, 1] as [number, number]);
+  const summary = useMemo(
+    () =>
+      area && pair && grids[active] && !gridsLoading
+        ? areaSummary(pair, grids[active]!, area)
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [area, pair?.id, active, grids, gridsLoading],
+  );
   const copyLink = () =>
     navigator.clipboard
       ?.writeText(window.location.href)
@@ -191,7 +298,16 @@ export default function Analysis() {
       ),
     ]);
   const stat = pair.layers[active]?.native_statistics;
-  const range = studyRange(study, active);
+  const takeaway = narratives[study.id]?.takeaway;
+  const exportPNG = () => {
+    const grid = grids[active];
+    if (grid)
+      downloadCanvas(
+        mapImage(study, pair, active, grid, range),
+        `terrashift-${study.id}-${pair.before}-${active}.png`,
+      );
+  };
+  const citation = `TerraShift (${new Date().getFullYear()}). ${study.name}: ${layerInfo[active].label}, ${pair.before} to ${pair.after}. Derived from NASA–ISRO NISAR product ${pair.granule} (NASA/ASF DAAC), accessed ${catalog.generated?.slice(0, 10) ?? "2026"}. https://github.com/snslighting/terrashift`;
   return (
     <main className="content-page analysis-page">
       <div className="analysis-heading">
@@ -212,6 +328,14 @@ export default function Analysis() {
           <span className="visually-hidden" aria-live="polite">
             {copied ? "Link to this view copied to the clipboard" : ""}
           </span>
+          <button
+            className="button secondary"
+            onClick={exportPNG}
+            disabled={!grids[active]}
+          >
+            <ImageDown size={15} />
+            Map image
+          </button>
           <button className="button secondary" onClick={exportJSON}>
             <Download size={15} />
             Evidence JSON
@@ -224,6 +348,12 @@ export default function Analysis() {
           )}
         </div>
       </div>
+      {takeaway && (
+        <p className="analysis-takeaway">
+          <span>KEY TAKEAWAY</span>
+          {takeaway}
+        </p>
+      )}
       <div className="case-switch" role="tablist" aria-label="Study area">
         {catalog.cases.map((c) => (
           <button
@@ -272,6 +402,16 @@ export default function Analysis() {
           <p>Independent calibration required</p>
         </div>
       </section>
+      <nav className="analysis-nav" aria-label="Sections of this analysis">
+        <a href="#analysis-map" onClick={jump("analysis-map")}>Map</a>
+        {study.pairs.length > 1 && (
+          <a href="#analysis-compare" onClick={jump("analysis-compare")}>Compare</a>
+        )}
+        {(comparison || pair.gnss) && (
+          <a href="#analysis-evidence" onClick={jump("analysis-evidence")}>Evidence</a>
+        )}
+        <a href="#analysis-method" onClick={jump("analysis-method")}>Method</a>
+      </nav>
       <div className="analysis-toolbar">
         <div className="segmented wrap" role="group" aria-label="Map layer">
           {kinds.map((k) => (
@@ -308,7 +448,7 @@ export default function Analysis() {
           </div>
         )}
       </div>
-      <section className="analysis-map">
+      <section className="analysis-map" id="analysis-map">
         <CaseMap
           study={study}
           pair={pair}
@@ -319,6 +459,8 @@ export default function Analysis() {
             if (!gridsLoading) setPixel(inspect(pair, grids, lon, lat));
           }}
           onMarker={onMarker}
+          onSelect={setArea}
+          selection={area}
         />
         {(pixel || station) && (
           <div className="analysis-inspector">
@@ -330,6 +472,11 @@ export default function Analysis() {
           </div>
         )}
       </section>
+      <AreaPanel
+        summary={summary}
+        kind={active}
+        onClear={() => setArea(undefined)}
+      />
       {gridError && (
         <p className="warning" role="alert">
           {gridError}{" "}
@@ -346,7 +493,7 @@ export default function Analysis() {
         <Confidence study={study} pair={pair} />
       </section>
       {study.pairs.length > 1 && (
-        <section className="comparison-section">
+        <section className="comparison-section" id="analysis-compare">
           <div className="section-heading">
             <div>
               <div className="eyebrow">
@@ -450,7 +597,7 @@ export default function Analysis() {
         </section>
       )}
       {comparison && (
-        <section className="validation-section">
+        <section className="validation-section" id="analysis-evidence">
           <div className="section-heading">
             <div>
               <div className="eyebrow">
@@ -477,7 +624,7 @@ export default function Analysis() {
         </section>
       )}
       {pair.gnss && (
-        <section className="validation-section">
+        <section className="validation-section" id={comparison ? undefined : "analysis-evidence"}>
           <div className="section-heading">
             <div>
               <div className="eyebrow">
@@ -513,7 +660,7 @@ export default function Analysis() {
           <SourceLink href={pair.gnss.source}>GNSS time series · NGL</SourceLink>
         </section>
       )}
-      <section className="method-note">
+      <section className="method-note" id="analysis-method">
         <div className="eyebrow">
           <span />
           REPRODUCIBLE, WITH LIMITS
@@ -552,6 +699,18 @@ export default function Analysis() {
             ))}
           </dd>
         </dl>
+        <div className="citation">
+          <span>
+            <Quote size={14} /> CITE THIS VIEW
+          </span>
+          <p>{citation}</p>
+          <button
+            className="text-button"
+            onClick={() => navigator.clipboard?.writeText(citation).catch(() => {})}
+          >
+            Copy citation
+          </button>
+        </div>
         <Link to="/data" className="text-button">
           Inspect processing and provenance
           <ArrowRight size={15} />

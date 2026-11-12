@@ -11,6 +11,7 @@ import {
   Flame,
 } from "lucide-react";
 import type {
+  Selection,
   ChangeType,
   Grid,
   LayerKind,
@@ -82,6 +83,8 @@ export function CaseMap({
   basemap,
   showStations = true,
   className,
+  onSelect,
+  selection,
 }: {
   study: StudyCase;
   pair: Pair;
@@ -94,6 +97,8 @@ export function CaseMap({
   basemap?: "satellite" | "geographic" | "terrain";
   showStations?: boolean;
   className?: string;
+  onSelect?: (selection: Selection) => void;
+  selection?: Selection;
 }) {
   const entry = pair.layers[kind];
   const range = useMemo(() => studyRange(study, kind), [study.id, kind]);
@@ -128,6 +133,8 @@ export function CaseMap({
         opacity={opacity}
         basemap={basemap}
         className={className}
+        onSelect={onSelect}
+        selection={selection}
       />
     </Suspense>
   );

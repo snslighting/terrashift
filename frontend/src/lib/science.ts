@@ -254,3 +254,70 @@ export function downloadCSV(
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export interface AreaSummary {
+  /** Display cells inside the area that hold data. */
+  cells: number;
+  /** Native radar pixels behind those cells. */
+  sourcePixels: number;
+  mean: number | null;
+  median: number | null;
+  p05: number | null;
+  p95: number | null;
+  /** Counts of cells per equal-width bin across `histogramRange`. */
+  histogram: number[];
+  /** The values the histogram spans: the given range, or the area's own min and max. */
+  histogramRange: [number, number];
+}
+/**
+ * Summarise a drawn area from the display grid. Each cell is the mean of its
+ * native pixels, so these statistics describe display cells (weighted equally),
+ * not native pixels; `sourcePixels` says how many real pixels lie behind them.
+ */
+export function areaSummary(
+  pair: Pair,
+  grid: Grid,
+  area: { bbox: BBox; polygon?: Position[] },
+  range?: [number, number],
+  bins = 16,
+): AreaSummary {
+  const b = pair.grid.bounds_mercator,
+    size = pair.grid.size,
+    values: number[] = [];
+  let sourcePixels = 0;
+  const box = area.bbox;
+  for (let row = 0; row < size; row++) {
+    const lat = mercatorToLngLat(0, b[3] - ((row + 0.5) * (b[3] - b[1])) / size)[1];
+    if (lat < box[1] || lat > box[3]) continue;
+    for (let col = 0; col < size; col++) {
+      const lon = mercatorToLngLat(b[0] + ((col + 0.5) * (b[2] - b[0])) / size, 0)[0];
+      const inBox = box[0] < box[2] ? lon >= box[0] && lon <= box[2] : lon >= box[0] || lon <= box[2];
+      if (!inBox || (area.polygon && !insidePolygon([lon, lat], area.polygon))) continue;
+      const v = grid.values[row * size + col];
+      if (!Number.isFinite(v)) continue;
+      values.push(v);
+      sourcePixels += grid.counts[row * size + col];
+    }
+  }
+  values.sort((x, y) => x - y);
+  const span: [number, number] =
+    range ?? (values.length ? [values[0], values.at(-1)! > values[0] ? values.at(-1)! : values[0] + 1] : [0, 1]);
+  const n = values.length,
+    at = (q: number) => (n ? values[Math.min(n - 1, Math.max(0, Math.round(q * (n - 1))))] : null),
+    histogram = new Array(bins).fill(0),
+    width = (span[1] - span[0]) / bins;
+  for (const v of values) {
+    const i = Math.floor((v - span[0]) / width);
+    histogram[Math.min(bins - 1, Math.max(0, i))]++;
+  }
+  return {
+    cells: n,
+    sourcePixels,
+    mean: n ? values.reduce((s, v) => s + v, 0) / n : null,
+    median: n ? (values[Math.floor((n - 1) / 2)] + values[Math.ceil((n - 1) / 2)]) / 2 : null,
+    p05: at(0.05),
+    p95: at(0.95),
+    histogram,
+    histogramRange: span,
+  };
+}

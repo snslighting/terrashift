@@ -8,6 +8,8 @@ import type { LayerKind } from "./types";
  * the signal.
  */
 export interface StoryNarrative {
+  /** One sentence for the top of the Analysis page: the key result, in plain words. */
+  takeaway: string;
   /** Step 1: where this is and why anyone should care. */
   why: string;
   /** Step 3: likely physical drivers, each a hypothesis. */
@@ -22,6 +24,8 @@ export interface StoryNarrative {
 
 export const narratives: Record<string, StoryNarrative> = {
   "san-joaquin": {
+    takeaway:
+      "A quarter of the mapped farmland lost more than half its radar coherence in 12 days, the pattern expected from actively worked fields.",
     why: "The San Joaquin Valley grows a large share of the fruit, nuts and vegetables eaten in the United States. It is also one of the fastest-sinking places on Earth, because irrigation leans on groundwater in dry years. Both kinds of change are slow, local and easy to miss from the ground.",
     drivers: [
       {
@@ -54,6 +58,8 @@ export const narratives: Record<string, StoryNarrative> = {
     layers: { 2: "disturbance", 3: "coherence_change", 4: "los" },
   },
   "venezuela-2026": {
+    takeaway:
+      "Across the M7.5 earthquake, parts of the Caracas coast moved 35 cm or more along the radar's line of sight, relative to a reference area.",
     why: "On 24 June 2026 two large earthquakes struck northern Venezuela within a minute; the larger, M7.5, was centred just off the coast west of Caracas. NISAR happened to image the coast eleven days before and one day after, so a single radar pair spans both shocks.",
     drivers: [
       {
@@ -86,6 +92,8 @@ export const narratives: Record<string, StoryNarrative> = {
     layers: { 2: "los", 3: "los", 4: "los" },
   },
   "flores-2026": {
+    takeaway:
+      "More than a quarter of mapped land on Flores lost over half its radar coherence across the M7.8 earthquake.",
     why: "A magnitude 7.8 earthquake struck off the north coast of Flores, Indonesia, on 14 August 2026. Tropical cloud often hides islands like Flores from optical satellites, but radar sees through it.",
     drivers: [
       {
