@@ -9,6 +9,7 @@ import React, {
 import { createRoot } from "react-dom/client";
 import {
   BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   NavLink,
@@ -174,8 +175,16 @@ function App() {
 }
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-      <App />
-    </BrowserRouter>
+    {/* VITE_HASH_ROUTER builds a self-contained copy for hosts that serve one page
+        (no per-route folders); GitHub Pages uses normal paths. */}
+    {import.meta.env.VITE_HASH_ROUTER ? (
+      <HashRouter>
+        <App />
+      </HashRouter>
+    ) : (
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <App />
+      </BrowserRouter>
+    )}
   </React.StrictMode>,
 );
