@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use TerraShift or its processed evidence, please cite it as below, and cite the NISAR data products it uses."
+title: "TerraShift: surface change from NASA-ISRO NISAR radar"
+type: software
+authors:
+  - name: "TerraShift contributors"
+version: 3.0.0
+license: MIT
+repository-code: "https://github.com/snslighting/terrashift"
+url: "https://snslighting.github.io/terrashift/"
+keywords:
+  - NISAR
+  - SAR
+  - InSAR
+  - surface change
+  - NASA Space Apps 2026

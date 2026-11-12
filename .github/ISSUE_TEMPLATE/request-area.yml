@@ -1,0 +1,39 @@
+name: Request an area
+description: Ask for a place to be processed with real NISAR data
+title: "Area request: "
+labels: ["area-request"]
+body:
+  - type: input
+    id: place
+    attributes:
+      label: Place
+      description: Name, or a bounding box as west,south,east,north in degrees
+    validations:
+      required: true
+  - type: input
+    id: dates
+    attributes:
+      label: Dates of interest
+      description: For example, the weeks around a flood or an earthquake
+  - type: dropdown
+    id: change
+    attributes:
+      label: Kind of change you expect
+      options:
+        - Farming / land disturbance
+        - Subsidence / ground motion
+        - Earthquake
+        - Flood / wetland
+        - Wildfire
+        - Glacier / ice
+        - Volcano
+        - Not sure
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this place matters
+  - type: textarea
+    id: products
+    attributes:
+      label: NISAR products found (optional)
+      description: Granule IDs from the TerraShift explorer, if you found any

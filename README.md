@@ -21,6 +21,22 @@ Highlights from the real data:
 - Across the Venezuela earthquake, line-of-sight motion spans −349 to +26 mm (5th–95th percentile). GNSS station CCS1 in Caracas moved 466 mm.
 - California ground-motion maps do **not** yet pass GNSS validation (28.4 and 51.1 mm RMS). Diagnostics show the misfit is mainly a common offset and a north–south tilt, implicating the reference area and ionosphere; see [known limitations](docs/KNOWN_LIMITATIONS.md).
 
+## Challenge alignment
+
+How TerraShift answers each part of the Dancing with the SARs challenge, including what is still open.
+
+| The challenge asks for | TerraShift today |
+|---|---|
+| Use real NISAR data | Real NISAR L2 GUNW products, checksum-verified, with live NASA CMR discovery of new products |
+| Changes at locations around the world | Farming (California), earthquakes (Venezuela, Indonesia), subsidence (California). Floods, wetlands and wildfire: GCOV pipeline built, no processed case yet |
+| Time series from different dates | Four 12-day pairs across three areas; play-through timeline and swipe; GNSS time series at stations |
+| Which polarizations highlight which change | Open: needs a processed GCOV case (HH vs HV) |
+| Optical imagery or GIS context | Satellite and terrain basemaps, country outlines, GNSS stations and USGS epicentres |
+| Hypothesize the physical drivers | "Likely drivers" per Earth Story, stated as hypotheses with the evidence for and against |
+| Future applications of NISAR | "What NISAR could do next" section on the Earth Stories page |
+| Compelling storytelling, interactive summary | Earth Stories (where, what the radar saw, likely drivers, how sure we are, why it matters) and shareable Analysis links |
+| Open source | MIT licence, public repository, documented pipeline and evidence exports |
+
 ## Features
 
 - Seven pages: interactive 3D Earth, worldwide explorer, analysis workspace, Earth Stories, science explainer, data & methodology, about.
@@ -75,6 +91,12 @@ Every push runs `.github/workflows/pages.yml`: Python tests and lint, frontend u
 ## Method in brief
 
 Native phase uses `LOS_mm = −φ·λ/(4π)·1000`, toward the satellite positive. Corrections (ionosphere, wet and hydrostatic troposphere, solid-Earth tide) follow only the reviewed processor 0.25.16 / schema 1.5.0. Ground-motion pixels pass schema-specific masks, coherence and spatial-support checks; surface-change maps use every unwrapped land pixel, because low coherence is the signal. Display grids bin actual pixel centres into 256×256 Web Mercator cells with exact counts and no gap filling. Details: [algorithm](docs/ALGORITHM.md), [validation](docs/VALIDATION.md), [GNSS comparison](docs/GNSS_COMPARISON.md), [correction diagnostics](docs/CORRECTION_DIAGNOSTICS.md), [repeat pair](docs/REPEAT_PAIR_FINDINGS.md).
+
+## License
+
+Code is released under the [MIT License](LICENSE). To cite TerraShift, see [CITATION.cff](CITATION.cff). NISAR data are provided by NASA and ISRO through the ASF DAAC; third-party library licences are in `frontend/public/licenses`. Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md); to ask for a new place, open a *Request an area* issue.
+
+All documentation is indexed in [docs/README.md](docs/README.md).
 
 ## Sources and credits
 
