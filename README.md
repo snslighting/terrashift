@@ -109,4 +109,4 @@ All documentation is indexed in [docs/README.md](docs/README.md).
 
 [NASA NISAR](https://nisar.jpl.nasa.gov/) · [ASF GUNW](https://nisar-docs.asf.alaska.edu/gunw/) · [NASA CMR](https://cmr.earthdata.nasa.gov/search/) · [NGL GNSS](https://geodesy.unr.edu/) · [USGS earthquakes](https://earthquake.usgs.gov/) · [Photon](https://github.com/komoot/photon) · [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/)
 
-Basemaps: Esri imagery and topography, CARTO dark basemap with OpenStreetMap data; they are context, not NISAR measurements. Library licences are in `frontend/public/licenses`. This is an independent challenge project, not an official NASA or ISRO product.
+Basemaps: Esri imagery and topography, CARTO dark basemap with OpenStreetMap data, and built-in NASA Blue Marble and Earth at Night imagery (used on the globe and whenever tile servers are unreachable; see `frontend/public/licenses/imagery.txt`). They are context, not NISAR measurements. Library licences are in `frontend/public/licenses`. This is an independent challenge project, not an official NASA or ISRO product.

@@ -70,6 +70,7 @@ export default function MapViewer(props: Props) {
   const [ready, setReady] = useState(false),
     [error, setError] = useState(""),
     [offlineBasemap, setOfflineBasemap] = useState(false),
+    offlineRef = useRef(false),
     [mode, setMode] = useState<"rectangle" | "polygon" | null>(null),
     [points, setPoints] = useState<Position[]>([]),
     [coords, setCoords] = useState("WORLDWIDE · WGS84"),
@@ -94,7 +95,10 @@ export default function MapViewer(props: Props) {
         minZoom: 1.2,
         maxZoom: 17,
         renderWorldCopies: true,
-        attributionControl: { compact: true },
+        attributionControl: {
+          compact: true,
+          customAttribution: "Built-in imagery: NASA Blue Marble",
+        },
         style: {
           version: 8,
           sources: {
@@ -164,21 +168,37 @@ export default function MapViewer(props: Props) {
       m.addControl(new ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-right");
       m.on("load", () => {
         if (cancelled) return;
-        // Offline fallback: bundled Natural Earth country outlines beneath the tile
-        // basemaps. Tiles cover them when they load; with no network they show through.
+        // Built-in basemap: NASA Blue Marble (public domain), reprojected to Web Mercator
+        // and shipped with the site. It sits beneath the tile basemaps, so it shows
+        // whenever tiles are unreachable (offline, or hosts that block tile servers).
+        const M = 85.0511287798;
+        m.addSource("blue-marble", {
+          type: "image",
+          url: new URL(asset("geo/blue-marble-mercator.webp"), location.href).href,
+          coordinates: [
+            [-180, M],
+            [180, M],
+            [180, -M],
+            [-180, -M],
+          ],
+        });
+        m.addLayer(
+          {
+            id: "blue-marble",
+            type: "raster",
+            source: "blue-marble",
+            paint: {
+              "raster-saturation": -0.2,
+              "raster-brightness-max": 0.78,
+              "raster-resampling": "linear",
+            },
+          },
+          "geographic",
+        );
         m.addSource("outlines", {
           type: "geojson",
           data: new URL(asset("geo/countries.json"), location.href).href,
         });
-        m.addLayer(
-          {
-            id: "offline-land",
-            type: "fill",
-            source: "outlines",
-            paint: { "fill-color": "#14243a" },
-          },
-          "geographic",
-        );
         // A 10-degree graticule gives the offline map a sense of place and scale.
         const lines: GeoJSON.Feature[] = [];
         for (let lon = -180; lon <= 180; lon += 10)
@@ -205,16 +225,16 @@ export default function MapViewer(props: Props) {
             id: "offline-graticule",
             type: "line",
             source: "graticule",
-            paint: { "line-color": "#2a4460", "line-width": 0.5, "line-opacity": 0.6 },
+            paint: { "line-color": "#9fc4e0", "line-width": 0.5, "line-opacity": 0.18 },
           },
-          "offline-land",
+          "geographic",
         );
         m.addLayer(
           {
             id: "offline-borders",
             type: "line",
             source: "outlines",
-            paint: { "line-color": "#5d7d99", "line-width": 0.7 },
+            paint: { "line-color": "#e3f1ff", "line-width": 0.6, "line-opacity": 0.45 },
           },
           "geographic",
         );
@@ -460,11 +480,29 @@ export default function MapViewer(props: Props) {
       if (!props.focus)
         m.fitBounds(fitBox(s.bbox), {
           padding: props.compact ? 35 : 65,
-          maxZoom: 12,
+          // The built-in imagery has ~10 km detail: stay regional when tiles are offline.
+          maxZoom: offlineRef.current ? 7 : 12,
           duration: reduced ? 0 : 1100,
         });
     }
   }, [props.selection, ready]);
+  // When the live basemap turns out to be offline and no measurement layer is shown,
+  // zoom out to a scale where the built-in imagery still shows the landscape.
+  useEffect(() => {
+    offlineRef.current = offlineBasemap;
+    const m = map.current;
+    if (!m || !offlineBasemap) return;
+    const settle = () => {
+      if (!latest.current.overlay && m.getZoom() > 7.5)
+        m.easeTo({ zoom: 7, duration: reduced ? 0 : 900 });
+    };
+    // Check now and after any fly-in that was already under way finishes.
+    if (!m.isMoving()) settle();
+    m.once("moveend", settle);
+    return () => {
+      m.off("moveend", settle);
+    };
+  }, [offlineBasemap]);
   const focusKey = props.focus?.join(",");
   useEffect(() => {
     const m = map.current;
@@ -595,8 +633,8 @@ export default function MapViewer(props: Props) {
       )}
       {offlineBasemap && !error && (
         <div className="map-offline" role="status">
-          Basemap offline<span className="long">
-            {" "}· showing country outlines. NISAR evidence is unaffected.
+          Live basemap offline<span className="long">
+            {" "}· showing NASA Blue Marble (about 10 km detail). NISAR evidence is unaffected.
           </span>
         </div>
       )}

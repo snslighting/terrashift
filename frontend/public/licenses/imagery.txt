@@ -1,0 +1,17 @@
+Built-in Earth imagery
+
+geo/blue-marble-mercator.webp, geo/earth-day.webp
+  NASA Blue Marble (NASA Earth Observatory / Visible Earth). NASA imagery is
+  not copyrighted in the United States. The Mercator map version was
+  reprojected from the equirectangular image for TerraShift.
+
+geo/earth-night.webp
+  NASA Earth at Night (city lights), NASA Earth Observatory / Visible Earth.
+
+geo/earth-relief.webp
+  Topography (relief) image distributed with the same examples.
+
+These images were taken from the example assets of the three-globe package
+(https://github.com/vasturiano/three-globe), MIT License,
+Copyright (c) 2019 Vasco Asturiano. They are used for context only; they are
+not NISAR measurements.
