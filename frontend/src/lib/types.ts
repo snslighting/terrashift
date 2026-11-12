@@ -183,6 +183,8 @@ export interface Discovery {
   source: string;
   query: { bbox: BBox; start: string; end: string };
   cached?: boolean;
+  /** True when NASA's live catalog was unreachable and stored products are shown. */
+  offline?: boolean;
 }
 export interface Place {
   name: string;

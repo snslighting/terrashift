@@ -540,9 +540,23 @@ export default function Explorer() {
           <div className="catalog-results">
             <div className="section-caption">
               <span>{result.returned} PRODUCTS RETURNED</span>
-              <span>{result.bounded ? "BOUNDED SEARCH" : "NASA CMR"}</span>
+              <span>
+                {result.offline ? "STORED · OFFLINE" : result.bounded ? "BOUNDED SEARCH" : "NASA CMR"}
+              </span>
             </div>
-            {!result.returned ? (
+            {result.offline && (
+              <div className="offline-notice" role="status">
+                <strong>NASA's live catalog could not be reached.</strong> Showing the processed
+                NISAR products stored with TerraShift that overlap your search. Other observations
+                may exist; search again when you are online.
+              </div>
+            )}
+            {!result.returned && result.offline ? (
+              <Empty title="No stored products here">
+                None of the processed study areas overlap this area and date range. Try San Joaquin
+                Valley, Caracas or Flores, or search again when you are online.
+              </Empty>
+            ) : !result.returned ? (
               <Empty title="No suitable GUNW data">
                 No products were returned for this area and date range. Try a
                 broader period or a nearby region. Other NISAR product types are
@@ -579,7 +593,11 @@ export default function Explorer() {
             )}
             <p className="tiny">
               Queried {new Date(result.queried_utc).toLocaleString()} ·{" "}
-              {result.cached ? "5-minute cache" : "public metadata"}
+              {result.offline
+                ? "stored evidence, not the live catalog"
+                : result.cached
+                  ? "5-minute cache"
+                  : "public metadata"}
               {result.hits != null
                 ? ` · ${result.hits.toLocaleString()} catalog matches`
                 : ""}

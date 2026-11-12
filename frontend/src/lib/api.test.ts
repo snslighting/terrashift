@@ -6,6 +6,8 @@ import {
   discover,
   requestProcessing,
   findPair,
+  offlineDiscovery,
+  offlinePlaces,
 } from "./api";
 import type { Catalog } from "./types";
 
@@ -99,5 +101,48 @@ describe("public catalog and honest availability", () => {
     expect(p.status).toBe("measured_provisional");
     expect(findPair(catalog, "area-1")?.study.id).toBe("area");
     expect(findPair(catalog, "missing")).toBeUndefined();
+  });
+});
+
+describe("offline fallbacks", () => {
+  const catalog = {
+    cases: [
+      {
+        id: "caracas",
+        name: "Caracas coast",
+        region: "Venezuela",
+        status: "measured_provisional",
+        bbox: [-67.3, 10.3, -66.7, 10.7],
+        pairs: [
+          {
+            id: "caracas-1",
+            granule: "G1",
+            before: "2026-06-13",
+            after: "2026-06-25",
+            track: 162,
+            frame: 7,
+            orbit: "Ascending",
+            coordinates: [
+              [-67.3, 10.7],
+              [-66.7, 10.7],
+              [-66.7, 10.3],
+              [-67.3, 10.3],
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as Catalog;
+  it("finds built-in places and study areas without the network, ignoring accents", () => {
+    expect(offlinePlaces("reykjavik")[0].name).toMatch(/Reykjav/);
+    expect(offlinePlaces("caracas", catalog)[0].source).toMatch(/study area/);
+    expect(offlinePlaces("nowhere-at-all")).toEqual([]);
+  });
+  it("returns only stored products that overlap in space and time, labelled offline", () => {
+    const hit = offlineDiscovery({ name: "x", bbox: [-67, 10.4, -66.9, 10.5] }, "2026-06-01", "2026-07-01", catalog);
+    expect(hit.offline).toBe(true);
+    expect(hit.products.map((p) => p.cached_pair)).toEqual(["caracas-1"]);
+    expect(offlineDiscovery({ name: "x", bbox: [0, 0, 1, 1] }, "2026-06-01", "2026-07-01", catalog).returned).toBe(0);
+    expect(offlineDiscovery({ name: "x", bbox: [-67, 10.4, -66.9, 10.5] }, "2026-08-01", "2026-09-01", catalog).returned).toBe(0);
   });
 });

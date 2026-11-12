@@ -125,6 +125,72 @@ export async function searchPlaces(
       `${api}/api/locations?q=${encodeURIComponent(query)}`,
       signal,
     );
+  try {
+    return await photon(query, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    // The public geocoder is unreachable (offline, blocked or busy): use built-in places.
+    const found = offlinePlaces(query, await loadCatalog().catch(() => undefined));
+    if (found.length) return found;
+    throw Error(
+      "Place search is unreachable right now. Enter latitude, longitude (for example 10.6, -67.0) or pick a study area.",
+    );
+  }
+}
+/** Well-known places for offline search; coordinates are city centres (WGS84). */
+const builtInPlaces: [string, number, number][] = [
+  ["Tashkent, Uzbekistan", 69.24, 41.3],
+  ["Samarkand, Uzbekistan", 66.96, 39.65],
+  ["Almaty, Kazakhstan", 76.89, 43.24],
+  ["Bishkek, Kyrgyzstan", 74.59, 42.87],
+  ["Jakarta, Indonesia", 106.85, -6.21],
+  ["Ende, Flores, Indonesia", 121.66, -8.84],
+  ["Manila, Philippines", 120.98, 14.6],
+  ["Tokyo, Japan", 139.69, 35.68],
+  ["Kathmandu, Nepal", 85.32, 27.72],
+  ["Dhaka, Bangladesh", 90.41, 23.81],
+  ["New Delhi, India", 77.21, 28.61],
+  ["Bengaluru, India", 77.59, 12.97],
+  ["Istanbul, Türkiye", 28.98, 41.01],
+  ["Cairo, Egypt", 31.24, 30.04],
+  ["Nairobi, Kenya", 36.82, -1.29],
+  ["Venice, Italy", 12.33, 45.44],
+  ["Naples, Italy", 14.27, 40.85],
+  ["Reykjavík, Iceland", -21.94, 64.15],
+  ["Caracas, Venezuela", -66.88, 10.49],
+  ["Lima, Peru", -77.04, -12.05],
+  ["Santiago, Chile", -70.67, -33.45],
+  ["Mexico City, Mexico", -99.13, 19.43],
+  ["Fresno, California, United States", -119.79, 36.74],
+  ["Los Angeles, California, United States", -118.24, 34.05],
+  ["San Francisco, California, United States", -122.42, 37.77],
+  ["Houston, Texas, United States", -95.37, 29.76],
+  ["New Orleans, Louisiana, United States", -90.07, 29.95],
+  ["Anchorage, Alaska, United States", -149.9, 61.22],
+];
+const fold = (t: string) =>
+  t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+export function offlinePlaces(query: string, catalog?: Catalog): Place[] {
+  const q = fold(query);
+  const study = (catalog?.cases ?? [])
+    .filter((c) => fold(`${c.name} ${c.region}`).includes(q))
+    .map((c) => ({
+      name: `${c.name}, ${c.region}`,
+      longitude: (c.bbox[0] + c.bbox[2]) / 2,
+      latitude: (c.bbox[1] + c.bbox[3]) / 2,
+      source: "TerraShift study area (offline search)",
+    }));
+  const places = builtInPlaces
+    .filter(([name]) => fold(name).includes(q))
+    .map(([name, longitude, latitude]) => ({
+      name,
+      longitude,
+      latitude,
+      source: "Built-in place list (offline search)",
+    }));
+  return [...study, ...places].slice(0, 5);
+}
+async function photon(query: string, signal?: AbortSignal): Promise<Place[]> {
   const data = await request<{
     features: {
       geometry: { coordinates: [number, number] };
@@ -263,7 +329,17 @@ export async function discover(
   } else {
     // Discovery must remain usable when the optional local research export is unavailable.
     const catalog = await loadCatalog().catch(() => undefined);
-    const results = await Promise.all(
+    let results;
+    try {
+      results = await liveSearch();
+    } catch (error) {
+      if (signal?.aborted || !catalog) throw error;
+      // NASA's catalog is unreachable (offline or blocked by the host): show the
+      // processed products stored with TerraShift that match, clearly labelled.
+      return offlineDiscovery(selection, start, end, catalog);
+    }
+    async function liveSearch() {
+      return Promise.all(
       splitBBox(bbox).map(async (box) => {
         const params = new URLSearchParams({
           short_name: COLLECTION,
@@ -282,7 +358,8 @@ export async function discover(
         }>(`${CMR}?${params}`, signal);
         return result;
       }),
-    );
+      );
+    }
     const products = [
       ...new Map(
         results
@@ -307,6 +384,59 @@ export async function discover(
   }
   cache.set(key, { at: Date.now(), data });
   return data;
+}
+/** Stored, processed products that overlap a search, for when the live catalog is unreachable. */
+export function offlineDiscovery(
+  selection: Selection,
+  start: string,
+  end: string,
+  catalog: Catalog,
+): Discovery {
+  const boxes = splitBBox(selection.bbox);
+  const products: Product[] = [];
+  for (const study of catalog.cases)
+    for (const pair of study.pairs) {
+      const lons = pair.coordinates.map((c) => c[0]),
+        lats = pair.coordinates.map((c) => c[1]),
+        w = Math.min(...lons),
+        e = Math.max(...lons),
+        s = Math.min(...lats),
+        n = Math.max(...lats);
+      const overlaps = boxes.some((b) => b[0] <= e && b[2] >= w && b[1] <= n && b[3] >= s);
+      const inTime = pair.before <= end && pair.after >= start;
+      if (!overlaps || !inTime) continue;
+      const ring = [...pair.coordinates, pair.coordinates[0]];
+      products.push({
+        id: pair.granule,
+        granule: pair.granule,
+        collection: COLLECTION,
+        before: pair.before,
+        after: pair.after,
+        track: pair.track ?? null,
+        frame: pair.frame ?? null,
+        orbit: pair.orbit ?? null,
+        polarizations: [],
+        geometry: { type: "Polygon", coordinates: [ring] },
+        source_url: `${CMR}?granule_ur=${encodeURIComponent(pair.granule)}`,
+        download_auth_required: true,
+        cached_pair: pair.id,
+        cached_case: study.id,
+        status: study.status,
+        metadata_warnings: [
+          "Stored with TerraShift: NASA's live catalog could not be reached. The outline is the processed map extent.",
+        ],
+      });
+    }
+  return {
+    products,
+    returned: products.length,
+    hits: null,
+    bounded: false,
+    queried_utc: new Date().toISOString(),
+    source: "Stored TerraShift evidence · NASA catalog unreachable",
+    query: { bbox: selection.bbox, start, end },
+    offline: true,
+  };
 }
 export async function requestProcessing(
   product: Product,

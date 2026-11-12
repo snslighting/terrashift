@@ -45,7 +45,11 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 - JSON and CSV evidence exports with source hashes; full provenance per product.
 - Earth Stories in five steps (where and why, what the radar saw, likely drivers as hypotheses, how sure we are, why it matters), with the map following each step, plus future NISAR applications.
 - Shareable Analysis views: case, pair, layer and comparison mode live in the URL ("Copy link").
-- Works without basemap tiles: bundled country outlines show if tile servers are unreachable, and NISAR evidence is served with the site.
+- Works offline or on strict hosts: bundled country outlines replace unreachable basemap tiles; if NASA's catalog or the place search cannot be reached, the Explorer falls back to built-in places and the processed products stored with the site, clearly labelled.
+- Guided tour across all pages (header "Tour" button), with a 90-second auto-playing demo for presentations.
+- Analysis: key takeaway, section menu, area statistics for a drawn rectangle or polygon, map image (PNG) export and a copyable citation.
+- Maps show a scale bar and a plain-language reading under the cursor; focus a map and use the arrow keys and Enter to inspect without a mouse.
+- `node scripts/hosted.mjs <dir>` (in `frontend/`) builds a single-page copy for hosts that serve only standard web file types.
 - Accessible: keyboard navigation, reduced motion, phone layouts with collapsible map panels.
 - Optional FastAPI backend: proxied discovery and geocoding, study-area/grid endpoints, region jobs stored in SQLite that resume after a restart.
 
