@@ -566,8 +566,9 @@ export default function MapViewer(props: Props) {
       )}
       {offlineBasemap && !error && (
         <div className="map-offline" role="status">
-          Basemap offline · showing country outlines. NISAR evidence is
-          unaffected.
+          Basemap offline<span className="long">
+            {" "}· showing country outlines. NISAR evidence is unaffected.
+          </span>
         </div>
       )}
       <div className="map-identity">

@@ -149,7 +149,6 @@ function Story({ study, index }: { study: StudyCase; index: number }) {
       return (
         <>
           <p>{narrative.why}</p>
-          <p className="muted">{study.summary}</p>
         </>
       );
     if (id === 2)

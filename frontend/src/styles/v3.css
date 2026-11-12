@@ -1015,3 +1015,51 @@
     width: 100%;
   }
 }
+
+/* ---------- Visual review fixes ---------- */
+/* Analysis: keep the layer switcher on one row (scrolls sideways if it must). */
+.analysis-toolbar .segmented {
+  max-width: none;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-width: 0;
+}
+/* Analysis: export actions share one width and alignment. */
+.analysis-exports {
+  align-items: stretch;
+  min-width: 190px;
+}
+.analysis-exports .button {
+  justify-content: center;
+}
+.analysis-exports .text-button {
+  align-self: center;
+}
+@media (max-width: 760px) {
+  .analysis-exports {
+    min-width: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  /* Home: let the partner strip wrap instead of clipping at the edge. */
+  .mission-strip strong {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 6px;
+  }
+  .mission-strip small {
+    max-width: none;
+    margin-left: 0;
+  }
+  /* Small maps: a short offline note that does not cover the data. */
+  .map-offline {
+    bottom: 8px;
+    font-size: var(--fs-label);
+    padding: 3px 8px;
+  }
+  .map-offline .long {
+    display: none;
+  }
+}
