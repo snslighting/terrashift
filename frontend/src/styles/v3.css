@@ -13,7 +13,7 @@
 .map-hint,
 .pixel-card > span,
 .tiny {
-  font-size: 10px !important;
+  font-size: var(--fs-xs) !important;
 }
 .legend p {
   line-height: 1.55;
@@ -46,7 +46,7 @@
   gap: 6px;
   border: 0;
   padding: 6px 4px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #b6cbda;
@@ -229,9 +229,65 @@
 /* ---------- Change types and cases ---------- */
 .change-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
   margin-top: 40px;
+}
+.change-next {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px dashed #ffffff22;
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+}
+.change-next > span {
+  font-size: var(--fs-label);
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.change-next ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.change-next li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sm);
+  color: #c9d6e2;
+}
+.change-next li svg {
+  color: var(--muted);
+}
+.change-next li small {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.change-next p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--muted);
+}
+.mission-disclaimer {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  font-size: var(--fs-xs);
+  color: #8ea3b6;
+}
+.mission-strip {
+  flex-wrap: wrap;
+}
+.mission-strip > span {
+  max-width: 160px;
 }
 .change-card {
   border: 1px solid var(--line);
@@ -259,7 +315,7 @@
 }
 .change-live,
 .change-ready {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.04em;
   padding-top: 10px;
   border-top: 1px solid var(--line);
@@ -274,7 +330,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   text-transform: capitalize;
   border: 1px solid #55d9f340;
   color: var(--blue);
@@ -312,7 +368,7 @@
   position: absolute;
   left: 12px;
   bottom: 12px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.08em;
   background: #071423cc;
   padding: 4px 8px;
@@ -429,7 +485,7 @@
 .provenance .hash {
   display: block;
   font-family: ui-monospace, monospace;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: #a5b9cc;
 }
 
@@ -512,4 +568,16 @@
   .structure-row > span {
     width: 120px;
   }
+}
+
+/* Short laptop screens: the decorative scroll bar would collide with the hero actions. */
+@media (min-width: 981px) and (max-height: 780px) {
+  .hero-bottom {
+    display: none;
+  }
+}
+
+/* Decorative globe and radar art may extend past narrow screens; never scroll sideways. */
+.home-page {
+  overflow-x: clip;
 }

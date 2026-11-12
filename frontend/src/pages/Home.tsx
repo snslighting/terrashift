@@ -23,6 +23,7 @@ import { layerInfo } from "../lib/layers";
 import { longDate } from "../lib/science";
 import type { ChangeType, StudyCase } from "../lib/types";
 const order: ChangeType[] = ["agriculture", "subsidence", "earthquake", "flood", "wildfire"];
+const words = ["", "One", "Two", "Three", "Four", "Five"];
 function CaseCard({ study, index }: { study: StudyCase; index: number }) {
   const pair = study.pairs.at(-1)!,
     kind = study.primary_layer,
@@ -67,7 +68,10 @@ export default function Home() {
       offset: ["start start", "end start"],
     }),
     reduced = useReducedMotion(),
-    y = useTransform(scrollYProgress, [0, 1], [0, reduced ? 0 : 130]);
+    y = useTransform(scrollYProgress, [0, 1], [0, reduced ? 0 : 130]),
+    // Lead with change types that have processed data; list the rest as "coming next".
+    liveTypes = order.filter((t) => cases.some((c) => c.change_types.includes(t))),
+    nextTypes = catalog ? order.filter((t) => !liveTypes.includes(t)) : [];
   return (
     <main className="home-page">
       <section className="hero" ref={hero}>
@@ -120,11 +124,8 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5 }}
           >
-            NISAR radar sees through clouds, day and night, every 12 days.
-            <br />
-            TerraShift turns its real observations into maps of farm activity,
-            <br className="desktop-break" /> earthquake deformation and ground
-            motion anywhere on Earth.
+            Real NISAR radar, through cloud and darkness, turned into maps of
+            farm activity, earthquakes and sinking ground.
           </motion.p>
           <motion.div
             className="hero-actions"
@@ -136,12 +137,12 @@ export default function Home() {
             <Button to="/explore" secondary>
               Explore anywhere
             </Button>
+            <div className="hero-proof">
+              <span className="live-dot" />
+              REAL NISAR DATA · {cases.length || "—"} STUDY AREAS ·{" "}
+              {cases.reduce((n, c) => n + c.pairs.length, 0) || "—"} RADAR PAIRS
+            </div>
           </motion.div>
-          <div className="hero-proof">
-            <span className="live-dot" />
-            REAL NISAR DATA · {cases.length || "—"} STUDY AREAS ·{" "}
-            {cases.reduce((n, c) => n + c.pairs.length, 0) || "—"} RADAR PAIRS
-          </div>
         </div>
         <div className="hero-bottom">
           <a href="#perspective" className="scroll-cue">
@@ -174,18 +175,22 @@ export default function Home() {
         <SourceLink href="https://www.spaceappschallenge.org/2026/challenges/dancing-with-the-sars/">
           SPACE APPS 2026
         </SourceLink>
+        <p className="mission-disclaimer">
+          An independent Space Apps project using public NISAR data. Not an
+          official NASA or ISRO product.
+        </p>
       </div>
       <section id="perspective" className="home-section perspective-section">
         <Reveal>
           <Eyebrow>01 / WHAT NISAR CAN SEE</Eyebrow>
           <h2>
-            Five kinds of change.
+            {liveTypes.length ? `${words[liveTypes.length] ?? liveTypes.length} kinds of change.` : "Kinds of change."}
             <br />
-            <em>One radar.</em>
+            <em>Measured with real data.</em>
           </h2>
         </Reveal>
         <div className="change-grid">
-          {order.map((type, i) => {
+          {liveTypes.map((type, i) => {
             const info = catalog?.change_types[type],
               live = cases.filter((c) => c.change_types.includes(type));
             return (
@@ -193,15 +198,32 @@ export default function Home() {
                 <ChangeIcon type={type} size={24} />
                 <h3>{info?.label ?? type}</h3>
                 <p>{info?.explain}</p>
-                <span className={live.length ? "change-live" : "change-ready"}>
-                  {live.length
-                    ? `${live.length} study area${live.length > 1 ? "s" : ""} · ${info?.measure}`
-                    : "Pipeline ready · awaiting processed data"}
+                <span className="change-live">
+                  {`${live.length} study area${live.length > 1 ? "s" : ""} · ${info?.measure}`}
                 </span>
               </Reveal>
             );
           })}
         </div>
+        {nextTypes.length > 0 && (
+          <Reveal className="change-next">
+            <span>COMING NEXT</span>
+            <ul>
+              {nextTypes.map((type) => (
+                <li key={type}>
+                  <ChangeIcon type={type} size={15} />
+                  {catalog?.change_types[type]?.label ?? type}
+                  <small>{catalog?.change_types[type]?.measure}</small>
+                </li>
+              ))}
+            </ul>
+            <p>
+              The processing pipeline is built; these appear once real
+              before-and-after products are processed. No map is shown without
+              real data.
+            </p>
+          </Reveal>
+        )}
       </section>
       <section className="radar-story home-section">
         <div className="radar-visual">
