@@ -59,7 +59,7 @@ jobs:
           name: smoke-screenshots
           path: frontend/e2e/output
           if-no-files-found: ignore
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: website-v2
