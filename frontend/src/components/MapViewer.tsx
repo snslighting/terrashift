@@ -195,6 +195,40 @@ export default function MapViewer(props: Props) {
           },
           "geographic",
         );
+        // Where NISAR has observed (public catalog snapshot), shown when zoomed out.
+        fetch(asset("evidence/coverage.json"))
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d: { cells: [number, number, number, string, string][] } | null) => {
+            if (!d || cancelled || !m.getStyle()) return;
+            m.addSource("nisar-coverage", {
+              type: "geojson",
+              data: {
+                type: "FeatureCollection",
+                features: d.cells.map(([lon, lat, n, first, last]) => ({
+                  type: "Feature",
+                  properties: { n, first, last },
+                  geometry: { type: "Point", coordinates: [lon, lat] },
+                })),
+              },
+            });
+            m.addLayer(
+              {
+                id: "nisar-coverage",
+                type: "circle",
+                source: "nisar-coverage",
+                maxzoom: 5.5,
+                paint: {
+                  "circle-color": "#55d9f3",
+                  "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 1.2, 5, 3.5],
+                  "circle-opacity": ["interpolate", ["linear"], ["get", "n"], 1, 0.25, 30, 0.8],
+                  "circle-blur": 0.4,
+                },
+              },
+              // Above every basemap (live or built-in), below search footprints and areas.
+              m.getLayer("coverage-fill") ? "coverage-fill" : undefined,
+            );
+          })
+          .catch(() => {});
         m.addSource("outlines", {
           type: "geojson",
           data: new URL(asset("geo/countries.json"), location.href).href,

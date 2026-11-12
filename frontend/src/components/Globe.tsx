@@ -302,6 +302,40 @@ export default function Globe({
           new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }),
         );
         earth.add(borders);
+        // Where NISAR has observed (public catalog snapshot): faint cyan dots. Metadata
+        // only, so they are styled apart from the green, processed study areas.
+        let coverage: ThreeTypes.Points | undefined;
+        fetch(asset("evidence/coverage.json"))
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d: { cells: [number, number, number, string, string][] } | null) => {
+            if (!d || disposed) return;
+            const pos = new Float32Array(d.cells.length * 3),
+              col = new Float32Array(d.cells.length * 3);
+            d.cells.forEach(([lon, lat, n], i) => {
+              const lo = (lon * Math.PI) / 180,
+                la = (lat * Math.PI) / 180,
+                r = 1.004;
+              pos.set([Math.cos(lo) * Math.cos(la) * r, Math.sin(la) * r, -Math.sin(lo) * Math.cos(la) * r], i * 3);
+              const k = 0.35 + 0.65 * Math.min(1, Math.sqrt(n / 30));
+              col.set([0.33 * k, 0.85 * k, 0.95 * k], i * 3);
+            });
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+            geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
+            coverage = new THREE.Points(
+              geometry,
+              new THREE.PointsMaterial({
+                size: 0.0095,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+              }),
+            );
+            earth.add(coverage);
+          })
+          .catch(() => {});
         // Outlines only the actual processed study extents; this is not acquisition coverage.
         const group = new THREE.Group();
         earth.add(group);
@@ -531,7 +565,11 @@ export default function Globe({
       <div className="globe-label north">
         <span>EARTH OBSERVATION</span>
         <strong>A planet in motion.</strong>
-        <small>Green markers · processed study areas · NISAR in orbit</small>
+        <small>
+          <i className="key-dot processed" /> Processed by TerraShift
+          <br />
+          <i className="key-dot observed" /> Observed by NISAR (public catalog)
+        </small>
       </div>
       <div className="globe-label south">
         <span className="live-dot" />

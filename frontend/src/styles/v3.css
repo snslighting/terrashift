@@ -1280,3 +1280,27 @@
 .offline-notice strong {
   color: var(--amber);
 }
+
+/* Globe legend dots */
+.key-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.key-dot.processed {
+  background: #c2f19d;
+  box-shadow: 0 0 6px #c2f19d;
+}
+.key-dot.observed {
+  background: #55d9f3;
+  box-shadow: 0 0 6px #55d9f3;
+}
+.globe-label.north {
+  background: #070d19b8;
+  backdrop-filter: blur(6px);
+  padding: 10px 12px;
+  border-radius: 6px;
+}
