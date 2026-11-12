@@ -5,6 +5,7 @@ import { useApp, useGrids } from "../lib/context";
 import { layerInfo } from "../lib/layers";
 import { inspect } from "../lib/science";
 import { futureApplications, narratives } from "../lib/stories";
+import { QuickLookGallery } from "../components/QuickLooks";
 import type { ChangeType, LayerKind, Pixel, StudyCase } from "../lib/types";
 import { PageIntro, Reveal, SourceLink, Skeleton, Button, Empty } from "../components/UI";
 import {
@@ -274,6 +275,7 @@ export default function Discoveries() {
             ))}
         </>
       )}
+      <QuickLookGallery />
       <section className="story-applications" aria-labelledby="applications-title">
         <span className="eyebrow">
           <span />

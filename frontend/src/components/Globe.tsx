@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Globe2, Rotate3D } from "lucide-react";
 import type * as ThreeTypes from "three";
 import { asset } from "../lib/api";
+import { loadQuickLooks } from "./QuickLooks";
 import type { BBox } from "../lib/types";
 type Three = typeof ThreeTypes;
 function outline(THREE: Three, [west, south, east, north]: BBox) {
@@ -336,6 +337,20 @@ export default function Globe({
             earth.add(coverage);
           })
           .catch(() => {});
+        // NASA quick-look places: small violet markers.
+        loadQuickLooks().then((places) => {
+          if (disposed) return;
+          for (const q of places) {
+            const lo = (q.longitude * Math.PI) / 180,
+              la = (q.latitude * Math.PI) / 180;
+            const dot = new THREE.Mesh(
+              new THREE.SphereGeometry(0.011, 10, 8),
+              new THREE.MeshBasicMaterial({ color: 0xb9adff, transparent: true, opacity: 0.95 }),
+            );
+            dot.position.set(Math.cos(lo) * Math.cos(la) * 1.008, Math.sin(la) * 1.008, -Math.sin(lo) * Math.cos(la) * 1.008);
+            earth.add(dot);
+          }
+        });
         // Outlines only the actual processed study extents; this is not acquisition coverage.
         const group = new THREE.Group();
         earth.add(group);
@@ -567,6 +582,8 @@ export default function Globe({
         <strong>A planet in motion.</strong>
         <small>
           <i className="key-dot processed" /> Processed by TerraShift
+          <br />
+          <i className="key-dot quicklook" /> NASA quick-look shown on this site
           <br />
           <i className="key-dot observed" /> Observed by NISAR (public catalog)
         </small>
