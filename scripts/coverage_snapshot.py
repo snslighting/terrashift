@@ -16,7 +16,7 @@ import json
 import sys
 import urllib.request
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 CMR = "https://cmr.earthdata.nasa.gov/search/granules.json"
@@ -77,7 +77,7 @@ def main() -> int:
     snapshot = {
         "collection": COLLECTION,
         "source": CMR,
-        "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "products": total,
         "catalog_hits": hits,
         "cell_degrees": CELL,

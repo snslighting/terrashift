@@ -16,7 +16,7 @@ import json
 import sys
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from PIL import Image
@@ -196,7 +196,7 @@ def main() -> int:
         json.dumps(
             {
                 "collection": COLLECTION,
-                "generated_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "generated_utc": datetime.now(UTC).isoformat(timespec="seconds"),
                 "note": (
                     "NASA quick-look (browse) images of NISAR GUNW products, shown as distributed. "
                     "Not processed, corrected or validated by TerraShift."
