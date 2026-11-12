@@ -462,15 +462,17 @@ export default function Analysis() {
           onSelect={setArea}
           selection={area}
         />
-        {(pixel || station) && (
-          <div className="analysis-inspector">
-            {station && comparison ? (
-              <StationCard station={station} reference={comparison.reference} />
-            ) : (
-              pixel && <PixelCard pixel={pixel} />
-            )}
-          </div>
-        )}
+        {/* Always present so screen readers announce each new inspection. */}
+        <div
+          className={pixel || station ? "analysis-inspector" : "visually-hidden"}
+          aria-live="polite"
+        >
+          {station && comparison ? (
+            <StationCard station={station} reference={comparison.reference} />
+          ) : (
+            pixel && <PixelCard pixel={pixel} />
+          )}
+        </div>
       </section>
       <AreaPanel
         summary={summary}

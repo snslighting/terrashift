@@ -1209,3 +1209,60 @@
     overflow-x: auto;
   }
 }
+
+/* ---------- Map keyboard inspection ---------- */
+.map-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  z-index: 4;
+  pointer-events: none;
+  display: none;
+  background:
+    linear-gradient(var(--cyan), var(--cyan)) center / 2px 100% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) center / 100% 2px no-repeat;
+  filter: drop-shadow(0 0 2px #000);
+}
+/* Shown only while the map itself has keyboard focus. */
+.map-shell:has(.maplibregl-canvas:focus-visible) .map-crosshair,
+.map-viewer:has(.maplibregl-canvas:focus-visible) .map-crosshair {
+  display: block;
+}
+.maplibregl-canvas:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
+}
+.maplibregl-ctrl-scale {
+  background: #070d19cc;
+  border-color: #c3d1de;
+  color: #d9e6f0;
+  font-size: var(--fs-label);
+}
+.chart-table {
+  margin: 10px 0;
+  font-size: var(--fs-xs);
+  color: #c3d1de;
+}
+.chart-table summary {
+  cursor: pointer;
+  color: var(--blue);
+}
+.chart-table table {
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.chart-table caption {
+  text-align: left;
+  color: var(--muted);
+  padding-bottom: 6px;
+}
+.chart-table th,
+.chart-table td {
+  padding: 4px 14px 4px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}

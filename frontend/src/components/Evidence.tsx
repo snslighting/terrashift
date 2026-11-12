@@ -22,7 +22,7 @@ import type {
   StudyCase,
 } from "../lib/types";
 import { format, layerInfo, studyRange } from "../lib/layers";
-import { longDate, number, signed } from "../lib/science";
+import { inspect, longDate, number, signed } from "../lib/science";
 import { Legend, rasterURL } from "./Raster";
 import { Skeleton, StatusBadge } from "./UI";
 const MapViewer = lazy(() => import("./MapViewer"));
@@ -71,6 +71,27 @@ export function caseMarkers(study: StudyCase, pair?: Pair): MapMarker[] {
   return markers;
 }
 
+/** Value at a point in plain words, e.g. "−120 mm · away from satellite". */
+export function readAt(pair: Pair, kind: LayerKind, grid: Grid, lon: number, lat: number) {
+  const sample = inspect(pair, { [kind]: grid }, lon, lat).samples[0];
+  if (!sample) return null;
+  if (sample.value == null) return "No data here";
+  const info = layerInfo[kind],
+    near = 2 * 10 ** -info.digits, // e.g. 2 mm, 0.02 coherence, 0.2 dB
+    meaning = info.diverging
+      ? Math.abs(sample.value) < near
+        ? "about no change"
+        : sample.value < 0
+          ? info.low.toLowerCase()
+          : info.high.toLowerCase()
+      : sample.value > 0.5
+        ? "strong change"
+        : sample.value > 0.25
+          ? "some change"
+          : "little change";
+  return `${format(kind, sample.value)} · ${meaning}`;
+}
+
 export function CaseMap({
   study,
   pair,
@@ -85,6 +106,7 @@ export function CaseMap({
   className,
   onSelect,
   selection,
+  probe,
 }: {
   study: StudyCase;
   pair: Pair;
@@ -99,6 +121,7 @@ export function CaseMap({
   className?: string;
   onSelect?: (selection: Selection) => void;
   selection?: Selection;
+  probe?: (lon: number, lat: number) => string | null;
 }) {
   const entry = pair.layers[kind];
   const range = useMemo(() => studyRange(study, kind), [study.id, kind]);
@@ -135,6 +158,7 @@ export function CaseMap({
         className={className}
         onSelect={onSelect}
         selection={selection}
+        probe={probe ?? (grid ? (lon, lat) => readAt(pair, kind, grid, lon, lat) : undefined)}
       />
     </Suspense>
   );

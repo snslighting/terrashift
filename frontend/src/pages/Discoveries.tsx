@@ -185,7 +185,7 @@ function Story({ study, index }: { study: StudyCase; index: number }) {
             </div>
           )}
           <p className="muted">{layerInfo[active].explain}</p>
-          {pixel && <PixelCard pixel={pixel} />}
+          <div aria-live="polite">{pixel && <PixelCard pixel={pixel} />}</div>
         </>
       );
     if (id === 3 && narrative)

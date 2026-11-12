@@ -138,6 +138,30 @@ export function SeriesChart({
           Independent GNSS
         </span>
       </div>
+      <details className="chart-table">
+        <summary>Show values as a table</summary>
+        <table>
+          <caption>
+            Cumulative line-of-sight motion at {station}, mm, relative to {study.series?.reference}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Radar (NISAR)</th>
+              {series.gnss_mm && <th scope="col">GNSS</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {series.dates.map((d, i) => (
+              <tr key={d}>
+                <th scope="row">{d}</th>
+                <td>{series.radar_mm[i].toFixed(1)}</td>
+                {series.gnss_mm && <td>{series.gnss_mm[i].toFixed(1)}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
       <p className="chart-note">
         Sequential 12-day pairs added end to end, relative to{" "}
         {study.series?.reference}. A chain has no loop-closure check and is not

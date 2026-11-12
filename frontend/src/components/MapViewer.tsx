@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Map as LibreMap,
   NavigationControl,
+  ScaleControl,
   Marker,
   setWorkerUrl,
   type ImageSource,
@@ -49,6 +50,8 @@ interface Props {
   className?: string;
   compact?: boolean;
   hint?: string;
+  /** Plain-language reading of the measurement at a point, shown live under the cursor. */
+  probe?: (lon: number, lat: number) => string | null;
 }
 function fitBox(b: BBox): [[number, number], [number, number]] {
   let [w, s, e, n] = b;
@@ -158,6 +161,7 @@ export default function MapViewer(props: Props) {
       });
       map.current = m;
       m.addControl(new NavigationControl({ showCompass: true }), "top-right");
+      m.addControl(new ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-right");
       m.on("load", () => {
         if (cancelled) return;
         // Offline fallback: bundled Natural Earth country outlines beneath the tile
@@ -283,11 +287,36 @@ export default function MapViewer(props: Props) {
         });
         setReady(true);
       });
-      m.on("mousemove", (e) =>
+      m.on("mousemove", (e) => {
+        const lon = normalizeLongitude(e.lngLat.lng),
+          lat = e.lngLat.lat,
+          reading = latest.current.probe?.(lon, lat);
         setCoords(
-          `${e.lngLat.lat.toFixed(4)}° LAT · ${normalizeLongitude(e.lngLat.lng).toFixed(4)}° LON`,
-        ),
+          reading
+            ? `${reading} · ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`
+            : `${lat.toFixed(4)}° LAT · ${lon.toFixed(4)}° LON`,
+        );
+      });
+      // Keyboard inspection: arrow keys pan (MapLibre default); Enter or Space reads
+      // the measurement under the centre crosshair.
+      const canvas = m.getCanvas();
+      canvas.setAttribute(
+        "aria-label",
+        "Map. Arrow keys move the map, plus and minus zoom, Enter inspects the point under the centre crosshair.",
       );
+      canvas.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        if (!latest.current.onPoint || drawing.current.mode) return;
+        e.preventDefault();
+        const c = m.getCenter();
+        latest.current.onPoint(normalizeLongitude(c.lng), Math.max(-90, Math.min(90, c.lat)));
+      });
+      m.on("moveend", () => {
+        if (document.activeElement !== canvas) return;
+        const c = m.getCenter(),
+          reading = latest.current.probe?.(normalizeLongitude(c.lng), c.lat);
+        if (reading) setCoords(`${reading} · centre`);
+      });
       m.on("click", (e) => {
         const point: Position = [
             normalizeLongitude(e.lngLat.lng),
@@ -648,7 +677,8 @@ export default function MapViewer(props: Props) {
           {legendOpen && props.legend}
         </div>
       )}
-      <div className="map-coordinate">
+      <div className="map-crosshair" aria-hidden="true" />
+      <div className="map-coordinate" aria-live="off">
         <Compass size={12} />
         {coords}
       </div>

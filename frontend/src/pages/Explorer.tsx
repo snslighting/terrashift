@@ -53,6 +53,7 @@ import {
   Findings,
   PairLabel,
   PixelCard,
+  readAt,
   StationCard,
 } from "../components/Evidence";
 const MapViewer = lazy(() => import("../components/MapViewer"));
@@ -688,6 +689,11 @@ export default function Explorer() {
               if (p) selectProduct(p);
             }}
             onMarker={onMarker}
+            probe={
+              pair && active && grids[active]
+                ? (lon, lat) => readAt(pair, active, grids[active]!, lon, lat)
+                : undefined
+            }
             onPoint={(lon, lat) => {
               if (pair) {
                 if (!gridsLoading) setPixel(inspect(pair, grids, lon, lat));
