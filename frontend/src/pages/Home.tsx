@@ -9,7 +9,6 @@ import {
 import {
   ArrowUpRight,
   ArrowDown,
-  Satellite,
   ScanLine,
   Globe2,
   Check,
@@ -20,6 +19,7 @@ import { useTour } from "../components/Tour";
 import { Button, Eyebrow, Reveal, SourceLink, StatusBadge } from "../components/UI";
 import { useApp, useGrids } from "../lib/context";
 import { Raster } from "../components/Raster";
+import RadarDiagram from "../components/RadarDiagram";
 import { ChangeIcon } from "../components/Evidence";
 import { layerInfo } from "../lib/layers";
 import { longDate } from "../lib/science";
@@ -234,23 +234,8 @@ export default function Home() {
       </section>
       <section className="radar-story home-section">
         <div className="radar-visual">
-          <div className="radar-orbit" />
-          <Satellite size={44} className="radar-satellite" />
-          <div className="radar-beam b1" />
-          <div className="radar-beam b2" />
-          <div className="radar-ground">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <span className="diagram-tag tag-satellite">01 / TRANSMIT</span>
-          <span className="diagram-tag tag-ground">02 / LISTEN</span>
-          <span className="radar-caption">
-            CONCEPTUAL DIAGRAM · NOT A MEASUREMENT
-          </span>
+          <RadarDiagram />
+          <span className="radar-caption">CONCEPTUAL ANIMATION · NOT A MEASUREMENT</span>
         </div>
         <Reveal className="radar-copy">
           <Eyebrow>02 / A SIGNAL THROUGH THE NOISE</Eyebrow>
