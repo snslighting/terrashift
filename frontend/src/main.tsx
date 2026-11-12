@@ -19,6 +19,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUpRight, CircleHelp, Menu, X } from "lucide-react";
 import { TourProvider, useTour } from "./components/Tour";
+import Ambient from "./components/Ambient";
 import { AppContext } from "./lib/context";
 import { loadCatalog } from "./lib/api";
 import type { Catalog, Selection } from "./lib/types";
@@ -110,6 +111,7 @@ function App() {
   }, [path]);
   return (
     <AppContext.Provider value={{ catalog, error, selection, setSelection }}>
+      <Ambient />
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>

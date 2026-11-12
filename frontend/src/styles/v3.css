@@ -1487,3 +1487,243 @@
   bottom: 14px;
   color: #6f8fa8;
 }
+
+/* =========================================================
+   Ambient effects (decorative; off for reduced motion)
+   ========================================================= */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ambient-stars {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.aurora {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.16;
+  will-change: transform;
+}
+.aurora.a1 {
+  background: radial-gradient(circle, #1f8fd1, transparent 65%);
+  top: -25vmax;
+  left: -15vmax;
+  animation: aurora-drift 38s ease-in-out infinite alternate;
+}
+.aurora.a2 {
+  background: radial-gradient(circle, #6a4dd8, transparent 65%);
+  top: 30vh;
+  right: -25vmax;
+  opacity: 0.12;
+  animation: aurora-drift 46s ease-in-out infinite alternate-reverse;
+}
+.aurora.a3 {
+  background: radial-gradient(circle, #19b39a, transparent 65%);
+  bottom: -30vmax;
+  left: 25vw;
+  opacity: 0.08;
+  animation: aurora-drift 54s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6vw, 4vh, 0) scale(1.12);
+  }
+  100% {
+    transform: translate3d(-4vw, -3vh, 0) scale(0.95);
+  }
+}
+/* Content sits above the ambient layer. */
+#main-content,
+.site-footer {
+  position: relative;
+  z-index: 1;
+}
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 200;
+  pointer-events: none;
+}
+.scroll-progress > div {
+  height: 100%;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #55d9f3, #8878ff, #c2f19d);
+  box-shadow: 0 0 10px #55d9f3aa;
+}
+
+/* Hero headline: a slow light sweep across the second half. */
+.hero-light {
+  background: linear-gradient(100deg, #7f9aad 20%, #d9f4ff 45%, #9ad8ff 55%, #7f9aad 80%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: hero-sheen 7s ease-in-out infinite;
+}
+@keyframes hero-sheen {
+  0%,
+  15% {
+    background-position: 100% 0;
+  }
+  60%,
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+/* Cards: soft spotlight that follows the pointer, and a gentle lift. */
+.change-card,
+.case-card,
+.applications-grid > div,
+.data-principle,
+.radar-facts > div,
+.area-panel {
+  position: relative;
+  isolation: isolate;
+  transition:
+    transform 0.35s var(--ease),
+    border-color 0.35s,
+    box-shadow 0.35s;
+}
+.change-card::before,
+.case-card::before,
+.quicklook-card::before,
+.applications-grid > div::before,
+.data-principle::before,
+.area-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 0%),
+    #55d9f322,
+    transparent 70%
+  );
+}
+.quicklook-card {
+  position: relative;
+  isolation: isolate;
+}
+.quicklook-card::before {
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), #b9adff26, transparent 70%);
+}
+.change-card:hover::before,
+.case-card:hover::before,
+.quicklook-card:hover::before,
+.applications-grid > div:hover::before,
+.data-principle:hover::before,
+.area-panel:hover::before {
+  opacity: 1;
+}
+.change-card:hover,
+.applications-grid > div:hover,
+.data-principle:hover {
+  transform: translateY(-3px);
+  border-color: #55d9f355;
+  box-shadow: 0 16px 40px #0007;
+}
+.case-card:hover {
+  box-shadow: 0 20px 50px #0008, 0 0 0 1px #55d9f333;
+}
+
+/* Buttons: a light sheen sweeps across on hover; primary buttons glow. */
+.button {
+  position: relative;
+  overflow: hidden;
+}
+.button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, #ffffff55 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.7s var(--ease);
+}
+.button:hover::after {
+  transform: translateX(120%);
+}
+.button:not(.secondary):hover {
+  box-shadow: 0 0 28px #55d9f366;
+}
+
+/* Main navigation: animated underline. */
+.site-header nav a {
+  position: relative;
+}
+.site-header nav a::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  transform: scaleX(0);
+  transition: transform 0.35s var(--ease);
+}
+.site-header nav a:hover::before {
+  transform: scaleX(1);
+}
+
+/* Live dot: a soft radar ping. */
+.live-dot {
+  position: relative;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  color: var(--cyan);
+  animation: ping 2.4s ease-out infinite;
+}
+@keyframes ping {
+  from {
+    transform: scale(0.4);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora,
+  .hero-light,
+  .live-dot::after {
+    animation: none;
+  }
+  .button::after {
+    display: none;
+  }
+  .change-card:hover,
+  .applications-grid > div:hover,
+  .data-principle:hover,
+  .quicklook-card:hover {
+    transform: none;
+  }
+}
