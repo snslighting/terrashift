@@ -78,22 +78,41 @@ export function Legend({
   entry,
   range: given,
   compact = false,
+  noise,
 }: {
   kind: LayerKind;
   entry?: LayerEntry;
   range?: [number, number];
   compact?: boolean;
+  /** Measured error around zero (layer units): that part of the scale is greyed out. */
+  noise?: number;
 }) {
   const info = layerInfo[kind],
     range = given ?? displayRange(kind, entry),
-    unit = info.unit ? ` ${info.unit}` : "";
+    unit = info.unit ? ` ${info.unit}` : "",
+    span = range[1] - range[0],
+    band =
+      noise && noise > 0 && info.diverging && span > 0
+        ? {
+            left: Math.max(0, ((-noise - range[0]) / span) * 100),
+            right: Math.min(100, ((noise - range[0]) / span) * 100),
+          }
+        : null;
   return (
     <div className="legend">
       <div className="legend-heading">
         {info.short.toUpperCase()}
-        <span>{info.unit || "0 – 1"}</span>
+        <span>{info.unit || (info.diverging ? "Δ coherence" : "0 – 1")}</span>
       </div>
-      <div className="legend-gradient" style={{ background: gradient(kind) }} />
+      <div className="legend-gradient" style={{ background: gradient(kind) }}>
+        {band && (
+          <span
+            className="legend-noise"
+            style={{ left: `${band.left}%`, width: `${band.right - band.left}%` }}
+            title={`Within the measured error (±${Math.round(noise!)}${unit} RMS)`}
+          />
+        )}
+      </div>
       <div className="legend-ticks">
         <span>
           {info.diverging ? `≤ ${range[0]}${unit}` : "0"} · {info.low}
@@ -103,6 +122,12 @@ export function Legend({
           {info.high} · {info.diverging ? `≥ +${range[1]}${unit}` : "1"}
         </span>
       </div>
+      {band && (
+        <p className="legend-noise-note">
+          <i /> Within error: ±{Math.round(noise!)}
+          {unit} RMS against GNSS
+        </p>
+      )}
       {!compact && <p>{info.explain}</p>}
     </div>
   );

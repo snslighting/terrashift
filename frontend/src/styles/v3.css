@@ -1727,3 +1727,101 @@
     transform: none;
   }
 }
+
+/* Review 2: honesty cues for unvalidated ground motion (P1), compare gaps (B1). */
+.not-validated-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid #efb57e66;
+  border-radius: 999px;
+  color: #efb57e;
+  font-size: 0.68em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.analysis-stat p .not-validated-chip {
+  margin: 0 6px 0 0;
+}
+.analysis-stat strong.unvalidated {
+  color: #c9d3de;
+}
+.layer-caveat,
+.compare-unavailable {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 10px 0 12px;
+  padding: 10px 14px;
+  border-left: 3px solid #efb57e;
+  background: #efb57e12;
+  color: #e6d6c4;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.layer-caveat svg,
+.compare-unavailable svg {
+  flex: none;
+  margin-top: 3px;
+}
+.map-ribbon {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 6px 14px;
+  background: #3a1f0ce6;
+  border: 1px solid #efb57e88;
+  border-radius: 4px;
+  color: #ffcf9e;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: center;
+  pointer-events: none;
+}
+.legend-gradient {
+  position: relative;
+}
+.legend-noise {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  background: repeating-linear-gradient(
+    135deg,
+    #8b95a3 0 3px,
+    #5a6371 3px 6px
+  );
+  border-radius: 1px;
+}
+.legend-noise-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: var(--fs-xs);
+  color: #a5bacb;
+}
+.legend-noise-note i {
+  width: 14px;
+  height: 6px;
+  background: repeating-linear-gradient(135deg, #8b95a3 0 3px, #5a6371 3px 6px);
+}
+.failure-badge.passed {
+  color: #8fe3b0;
+  border-color: #8fe3b042;
+}
+.failure-badge.unknown {
+  color: #c3d1de;
+  border-color: #c3d1de42;
+}
+@media (max-width: 699px) {
+  .map-ribbon {
+    top: auto;
+    bottom: 10px;
+  }
+}

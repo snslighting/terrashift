@@ -33,6 +33,7 @@ import {
 } from "../lib/science";
 import { useApp, useGrids } from "../lib/context";
 import { format, layerInfo, studyRange } from "../lib/layers";
+import { validationLabel } from "../lib/evidence";
 import type {
   BBox,
   Discovery,
@@ -280,7 +281,7 @@ export default function Explorer() {
     downloadJSON("terrashift-research-evidence.json", {
       project: "TerraShift",
       status: pair
-        ? `MEASURED_PROVISIONAL_${pair.comparison ? "VALIDATION_FAILED" : "NO_INDEPENDENT_COMPARISON"}`
+        ? `MEASURED_PROVISIONAL_${pair.comparison ? `VALIDATION_${validationLabel(pair.comparison).code}` : "NO_INDEPENDENT_COMPARISON"}`
         : product
           ? "PROCESSING_UNAVAILABLE"
           : "CATALOG_DISCOVERY",

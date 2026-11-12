@@ -20,6 +20,12 @@ import { narratives } from "../lib/stories";
 import { mapImage, downloadCanvas } from "../lib/mapImage";
 import { useApp, useGrids } from "../lib/context";
 import { caseById } from "../lib/api";
+import {
+  comparePairs,
+  groundMotionWarning,
+  pairSpan,
+  validationLabel,
+} from "../lib/evidence";
 import { layerInfo, format, studyRange } from "../lib/layers";
 import {
   areaSummary,
@@ -192,16 +198,13 @@ export default function Analysis() {
     retry: retryGrids,
   } = useGrids(pair, kinds);
   useEffect(() => setPixel(undefined), [pair?.id]);
-  const first = study?.pairs[0],
-    last = study?.pairs.at(-1);
-  const { grids: firstGrids } = useGrids(
-    study && study.pairs.length > 1 ? first : undefined,
-    [active],
-  );
-  const { grids: lastGrids } = useGrids(
-    study && study.pairs.length > 1 ? last : undefined,
-    [active],
-  );
+  // Compare the first and latest pair that actually carry the active layer (B1):
+  // a layer missing from a pair must never produce an empty panel.
+  const compare = study && active ? comparePairs(study, active) : undefined,
+    first = compare?.first ?? undefined,
+    last = compare?.last ?? undefined;
+  const { grids: firstGrids } = useGrids(first, active ? [active] : []);
+  const { grids: lastGrids } = useGrids(last, active ? [active] : []);
   useEffect(() => {
     if (!study || !pair || !active) return;
     setParams(
@@ -245,7 +248,10 @@ export default function Analysis() {
         {error ? <Empty title="Evidence unavailable">{error}</Empty> : <Skeleton />}
       </main>
     );
-  const comparison = pair.comparison;
+  const comparison = pair.comparison,
+    verdict = validationLabel(comparison),
+    warning = groundMotionWarning(active, comparison),
+    losWarning = groundMotionWarning("los", comparison);
   const onMarker = (m: MapMarker) => {
     const s = comparison?.stations.find((x) => x.station === m.id);
     if (s) setStation(s);
@@ -265,7 +271,7 @@ export default function Analysis() {
       pair,
       selected_pixel: pixel,
       selected_station: station,
-      validation: comparison?.validation ?? "NO_INDEPENDENT_COMPARISON",
+      validation: verdict.code,
       total_uncertainty_mm: null,
       source: catalog.gnss_source,
       exported_utc: new Date().toISOString(),
@@ -292,7 +298,7 @@ export default function Analysis() {
           s.relative_nisar_candidate_los_mm,
           s.relative_gnss_los_mm,
           s.residual_mm,
-          p.comparison!.validation,
+          validationLabel(p.comparison).code,
           p.comparison!.reference,
         ]),
       ),
@@ -307,7 +313,9 @@ export default function Analysis() {
         `terrashift-${study.id}-${pair.before}-${active}.png`,
       );
   };
-  const citation = `TerraShift (${new Date().getFullYear()}). ${study.name}: ${layerInfo[active].label}, ${pair.before} to ${pair.after}. Derived from NASA–ISRO NISAR product ${pair.granule} (NASA/ASF DAAC), accessed ${catalog.generated?.slice(0, 10) ?? "2026"}. https://github.com/snslighting/terrashift`;
+  // Fixed to the catalog that produced these numbers, not the viewer's clock (B8).
+  const processed = catalog.generated?.slice(0, 10),
+    citation = `TerraShift (${processed?.slice(0, 4) ?? "2026"}). ${study.name}: ${layerInfo[active].label}, ${pair.before} to ${pair.after}. Evidence catalog v${catalog.version}${processed ? `, processed ${processed}` : ""}. Derived from NASA–ISRO NISAR product ${pair.granule} (NASA/ASF DAAC). https://github.com/snslighting/terrashift`;
   return (
     <main className="content-page analysis-page">
       <div className="analysis-heading">
@@ -382,8 +390,13 @@ export default function Analysis() {
         </div>
         <div className="analysis-stat">
           <span>{layerInfo[active].short.toUpperCase()} · MEDIAN</span>
-          <strong>{format(active, stat?.median ?? null)}</strong>
-          <p>{stat?.count.toLocaleString()} accepted pixels</p>
+          <strong className={warning ? "unvalidated" : ""}>
+            {format(active, stat?.median ?? null)}
+          </strong>
+          <p>
+            {warning && <b className="not-validated-chip">Not validated</b>}
+            {stat?.count.toLocaleString()} accepted pixels
+          </p>
         </div>
         <div className="analysis-stat">
           <span>GNSS CHECK</span>
@@ -392,7 +405,7 @@ export default function Analysis() {
           </strong>
           <p>
             {comparison
-              ? `RMS · ${comparison.count} stations · validation failed`
+              ? `RMS · ${comparison.count} stations · ${verdict.phrase}`
               : "No co-located stations"}
           </p>
         </div>
@@ -421,6 +434,11 @@ export default function Analysis() {
               onClick={() => setKind(k)}
             >
               {layerInfo[k].short}
+              {k === "los" && losWarning && (
+                <b className="not-validated-chip" title={losWarning.text}>
+                  Not validated
+                </b>
+              )}
             </button>
           ))}
         </div>
@@ -430,13 +448,14 @@ export default function Analysis() {
               <button
                 key={p.id}
                 className={pair.id === p.id ? "active" : ""}
+                title={`${longDate(p.before)} → ${longDate(p.after)}`}
                 onClick={() => {
                   setPlaying(false);
                   setPairIndex(i);
                 }}
               >
                 <span>PAIR {String(i + 1).padStart(2, "0")}</span>
-                {p.before.slice(5)} → {p.after.slice(5)}
+                {pairSpan(study, p)}
               </button>
             ))}
             <button
@@ -448,6 +467,11 @@ export default function Analysis() {
           </div>
         )}
       </div>
+      {warning && (
+        <p className="layer-caveat" role="note">
+          <Info size={14} /> {warning.text}
+        </p>
+      )}
       <section className="analysis-map" id="analysis-map">
         <CaseMap
           study={study}
@@ -461,7 +485,13 @@ export default function Analysis() {
           onMarker={onMarker}
           onSelect={setArea}
           selection={area}
+          noise={warning?.noise}
         />
+        {warning && (
+          <div className="map-ribbon" role="note">
+            {warning.ribbon}
+          </div>
+        )}
         {/* Always present so screen readers announce each new inspection. */}
         <div
           className={pixel || station ? "analysis-inspector" : "visually-hidden"}
@@ -526,9 +556,15 @@ export default function Analysis() {
             </div>
           </div>
           <p className="section-description">
-            First and latest 12-day pairs on the same registered grid. Each
-            panel is one interferometric pair, not a photograph.
+            First and latest 12-day pairs that carry this layer, on the same
+            registered grid. Each panel is one interferometric pair, not a
+            photograph.
           </p>
+          {mode !== "series" && compare && !compare.first && (
+            <p className="compare-unavailable" role="note">
+              <Info size={14} /> {compare.reason}
+            </p>
+          )}
           {mode === "swipe" && first && last && (
             <div className="swipe-comparison">
               <div className="swipe-base">
@@ -542,12 +578,8 @@ export default function Analysis() {
                   <ArrowLeftRight size={18} />
                 </span>
               </div>
-              <span className="comparison-date left">
-                {first.before.slice(5)} → {first.after.slice(5)}
-              </span>
-              <span className="comparison-date right">
-                {last.before.slice(5)} → {last.after.slice(5)}
-              </span>
+              <span className="comparison-date left">{pairSpan(study, first)}</span>
+              <span className="comparison-date right">{pairSpan(study, last)}</span>
               <input
                 aria-label="Compare first and latest pair"
                 type="range"
@@ -593,8 +625,8 @@ export default function Analysis() {
               <SeriesChart study={study} station={seriesStation} />
             </div>
           )}
-          {mode !== "series" && pair.layers[active] && (
-            <Legend kind={active} range={range} />
+          {mode !== "series" && first && (
+            <Legend kind={active} range={range} noise={warning?.noise} />
           )}
         </section>
       )}
@@ -608,7 +640,7 @@ export default function Analysis() {
               </div>
               <h2>Radar against GNSS.</h2>
             </div>
-            <span className="failure-badge">GROUND-MOTION VALIDATION FAILED</span>
+            <span className={`failure-badge ${verdict.tone}`}>{verdict.badge}</span>
           </div>
           <div className="validation-grid">
             <ResidualChart comparison={comparison} />

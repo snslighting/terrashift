@@ -1,7 +1,10 @@
 import type { LayerEntry, LayerKind, StudyCase } from "./types";
 
 type RGB = [number, number, number];
-// Perceptual palettes (inferno-like sequential, RdBu-like diverging).
+// Perceptual palettes: inferno-like sequential; dark-centred diverging palettes, so
+// "no change" recedes into a dark interface and basemap while real signal is the
+// brightest colour (review P2). Blue/red stays reserved for direction of motion or
+// brightness; non-directional activity change gets purple/teal (review P3).
 const sequential: RGB[] = [
   [20, 11, 52],
   [87, 16, 110],
@@ -11,14 +14,26 @@ const sequential: RGB[] = [
   [252, 255, 164],
 ];
 const diverging: RGB[] = [
-  [33, 102, 172],
-  [103, 169, 207],
-  [209, 229, 240],
-  [247, 247, 247],
-  [253, 219, 199],
-  [239, 138, 98],
-  [178, 24, 43],
+  [146, 205, 255],
+  [70, 145, 225],
+  [38, 82, 150],
+  [22, 28, 42],
+  [150, 52, 46],
+  [228, 98, 70],
+  [255, 172, 130],
 ];
+/** Activity change: purple (more change, the brighter end) through dark to teal (less change). */
+const activity: RGB[] = [
+  [238, 176, 255],
+  [190, 110, 235],
+  [112, 60, 160],
+  [22, 28, 42],
+  [24, 92, 96],
+  [36, 140, 138],
+  [78, 186, 176],
+];
+export const paletteFor = (kind: LayerKind): RGB[] =>
+  kind === "coherence_change" ? activity : layerInfo[kind].diverging ? diverging : sequential;
 
 export interface LayerInfo {
   label: string;
@@ -62,7 +77,7 @@ export const layerInfo: Record<LayerKind, LayerInfo> = {
     low: "More change",
     high: "Less change",
     explain:
-      "Coherence in this period minus the previous period, on pixels measured in both. Blue: the surface changed more than before (new field work, harvest).",
+      "Coherence in this period minus the previous period, on pixels measured in both. Bright purple: the surface changed more than before (new field work, harvest); teal: it changed less. Dark: about the same.",
     digits: 2,
   },
   backscatter_change: {
@@ -97,7 +112,7 @@ export function displayRange(kind: LayerKind, entry?: LayerEntry): [number, numb
 }
 
 export function color(value: number, kind: LayerKind, range: [number, number]): RGB {
-  const palette = layerInfo[kind].diverging ? diverging : sequential;
+  const palette = paletteFor(kind);
   const t = (value - range[0]) / (range[1] - range[0]);
   const k = Math.min(1, Math.max(0, t)) * (palette.length - 1),
     i = Math.min(palette.length - 2, Math.floor(k)),
@@ -108,7 +123,7 @@ export function color(value: number, kind: LayerKind, range: [number, number]): 
 }
 
 export function gradient(kind: LayerKind) {
-  const palette = layerInfo[kind].diverging ? diverging : sequential;
+  const palette = paletteFor(kind);
   return `linear-gradient(90deg, ${palette.map((c) => `rgb(${c.join(",")})`).join(", ")})`;
 }
 

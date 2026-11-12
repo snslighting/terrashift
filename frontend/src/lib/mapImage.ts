@@ -1,6 +1,7 @@
 import { paint } from "../components/Raster";
 import { color, layerInfo } from "./layers";
 import { longDate } from "./science";
+import { groundMotionWarning, validationLabel } from "./evidence";
 import type { Grid, LayerKind, Pair, StudyCase } from "./types";
 
 /**
@@ -58,6 +59,18 @@ export function mapImage(
   g.drawImage(frame, dx, dy, dw, dh);
   g.strokeStyle = "#ffffff22";
   g.strokeRect(M + 0.5, top + 0.5, map - 1, map - 1);
+  g.strokeStyle = "#e8f1ffbb";
+  g.strokeRect(dx + 0.5, dy + 0.5, dw - 1, dh - 1);
+
+  // An unvalidated ground-motion map carries its warning inside the image (review P1).
+  const warning = groundMotionWarning(kind, pair.comparison);
+  if (warning) {
+    g.fillStyle = "#3a1f0ce6";
+    g.fillRect(M, top, map, 40);
+    g.fillStyle = "#ffcf9e";
+    g.font = "600 16px 'DM Sans', system-ui, sans-serif";
+    g.fillText(warning.ribbon, M + 16, top + 26);
+  }
 
   // Colour bar and its meaning.
   const x = M + map + 48,
@@ -86,7 +99,7 @@ export function mapImage(
     `Display grid ${pair.grid.size} × ${pair.grid.size}; each cell is the mean of the real radar pixels inside it.`,
     "Blank cells have no accepted data. Nothing is interpolated.",
     pair.comparison
-      ? `Independent GNSS check: ${pair.comparison.rmse_mm.toFixed(1)} mm RMS against ${pair.comparison.count} stations (validation failed).`
+      ? `Independent GNSS check: ${pair.comparison.rmse_mm.toFixed(1)} mm RMS against ${pair.comparison.count} stations (${validationLabel(pair.comparison).phrase}).`
       : "",
   ].filter(Boolean);
   let y = top + 420;

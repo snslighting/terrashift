@@ -71,7 +71,17 @@ describe("grids, selection and units", () => {
     expect(displayRange("los", entry)).toEqual([-500, 500]);
     expect(displayRange("disturbance")).toEqual([0, 1]);
     expect(color(-100, "los", [-100, 100])).not.toEqual(color(100, "los", [-100, 100]));
-    expect(color(0, "coherence_change", [-0.5, 0.5])).toEqual([247, 247, 247]);
+    // Dark-centred: "no change" is the darkest colour, never the brightest.
+    const lum = ([r, g, b]: number[]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    for (const kind of ["los", "coherence_change", "backscatter_change"] as const) {
+      const zero = lum(color(0, kind, [-1, 1]));
+      expect(zero).toBeLessThan(lum(color(-1, kind, [-1, 1])));
+      expect(zero).toBeLessThan(lum(color(1, kind, [-1, 1])));
+    }
+    // "More change" (negative coherence change) is the brighter end.
+    expect(lum(color(-0.5, "coherence_change", [-0.5, 0.5]))).toBeGreaterThan(
+      lum(color(0.5, "coherence_change", [-0.5, 0.5])),
+    );
     expect(format("los", 12.4)).toBe("+12 mm");
     expect(format("disturbance", null)).toBe("No data");
   });

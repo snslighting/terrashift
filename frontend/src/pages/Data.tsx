@@ -18,6 +18,7 @@ import {
 } from "../components/UI";
 import { useApp } from "../lib/context";
 import { statuses, number, downloadJSON, longDate } from "../lib/science";
+import { validationLabel } from "../lib/evidence";
 import type { Status } from "../lib/types";
 import { backendConfigured } from "../lib/api";
 export default function Data() {
@@ -133,7 +134,7 @@ export default function Data() {
                     correction_equation: pair.correction_equation,
                     ionosphere_policy: pair.ionosphere_policy,
                     source_hashes: pair.source_hashes,
-                    validation: pair.comparison?.validation ?? "NO_INDEPENDENT_COMPARISON",
+                    validation: validationLabel(pair.comparison).code,
                   })),
                 )
               }
@@ -185,7 +186,7 @@ export default function Data() {
                   <span>GNSS CHECK</span>
                   <strong>
                     {p.comparison
-                      ? `${p.comparison.count} stations · ${number(p.comparison.rmse_mm, 1)} mm · ${p.comparison.validation.toLowerCase()}`
+                      ? `${p.comparison.count} stations · ${number(p.comparison.rmse_mm, 1)} mm · ${validationLabel(p.comparison).phrase}`
                       : "Not available"}
                   </strong>
                 </div>

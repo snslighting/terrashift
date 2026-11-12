@@ -23,6 +23,7 @@ import type {
 } from "../lib/types";
 import { format, layerInfo, studyRange } from "../lib/layers";
 import { inspect, longDate, number, signed } from "../lib/science";
+import { dataBounds, validationLabel } from "../lib/evidence";
 import { Legend, rasterURL } from "./Raster";
 import { Skeleton, StatusBadge } from "./UI";
 const MapViewer = lazy(() => import("./MapViewer"));
@@ -107,6 +108,7 @@ export function CaseMap({
   onSelect,
   selection,
   probe,
+  noise,
 }: {
   study: StudyCase;
   pair: Pair;
@@ -122,8 +124,13 @@ export function CaseMap({
   onSelect?: (selection: Selection) => void;
   selection?: Selection;
   probe?: (lon: number, lat: number) => string | null;
+  /** Measured error (same unit as the layer) to grey out on the legend. */
+  noise?: number;
 }) {
   const entry = pair.layers[kind];
+  // Open on the processed data, not the wider study box (B7). Pairs of one study share
+  // a grid, so this stays put (and keeps the user's zoom) when the pair or layer changes.
+  const focus = useMemo(() => dataBounds(pair), [pair.coordinates.flat().join(",")]);
   const range = useMemo(() => studyRange(study, kind), [study.id, kind]);
   const overlay = useMemo(
     () =>
@@ -147,9 +154,12 @@ export function CaseMap({
     <Suspense fallback={<Skeleton label="Loading the map…" />}>
       <MapViewer
         overlay={overlay}
-        legend={<Legend kind={kind} entry={entry} range={range} compact={compact} />}
+        legend={
+          <Legend kind={kind} entry={entry} range={range} compact={compact} noise={noise} />
+        }
         markers={markers}
-        focus={study.bbox}
+        focus={focus}
+        title={study.name}
         onPoint={onPixel}
         onMarker={onMarker}
         compact={compact}
@@ -184,7 +194,8 @@ export function Confidence({
   study: StudyCase;
   pair?: Pair;
 }) {
-  const c = pair?.comparison;
+  const c = pair?.comparison,
+    verdict = validationLabel(c);
   return (
     <section className="confidence" aria-label="How sure are we?">
       <div className="confidence-heading">
@@ -197,7 +208,8 @@ export function Confidence({
           Checked against {c.count} independent GNSS stations (reference{" "}
           {c.reference}): ground-motion differs by{" "}
           <strong>{number(c.rmse_mm)} mm RMS</strong>, so ground-motion
-          validation <strong>failed</strong>.
+          validation{" "}
+          <strong>{verdict.state === "passed" ? "passed" : "failed"}</strong>.
           {c.structure.status === "DIAGNOSTIC_ONLY" &&
             ` ${c.structure.interpretation}`}
         </p>

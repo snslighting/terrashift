@@ -52,6 +52,8 @@ interface Props {
   hint?: string;
   /** Plain-language reading of the measurement at a point, shown live under the cursor. */
   probe?: (lon: number, lat: number) => string | null;
+  /** Name shown in the map's corner label; defaults to the Explorer's name. */
+  title?: string;
 }
 function fitBox(b: BBox): [[number, number], [number, number]] {
   let [w, s, e, n] = b;
@@ -570,11 +572,32 @@ export default function MapViewer(props: Props) {
     if (!m || !ready) return;
     const overlay = props.overlay;
     if (!overlay) {
-      if (m.getLayer("measurement"))
-        m.setLayoutProperty("measurement", "visibility", "none");
+      for (const id of ["measurement", "measurement-edge"])
+        if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", "none");
       return;
     }
     const coords = overlay.coordinates as [Position, Position, Position, Position];
+    // A thin outline of the processed area, so its edge is clear on any basemap.
+    const edge = {
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "Polygon" as const, coordinates: [[...coords, coords[0]]] },
+    };
+    if (m.getSource("measurement-edge"))
+      (m.getSource("measurement-edge") as GeoJSONSource).setData(edge);
+    else {
+      m.addSource("measurement-edge", { type: "geojson", data: edge });
+      m.addLayer(
+        {
+          id: "measurement-edge",
+          type: "line",
+          source: "measurement-edge",
+          paint: { "line-color": "#e8f1ff", "line-opacity": 0.75, "line-width": 1.2 },
+        },
+        "aoi-line",
+      );
+    }
+    m.setLayoutProperty("measurement-edge", "visibility", "visible");
     if (m.getSource("measurement")) {
       (m.getSource("measurement") as ImageSource).updateImage({
         url: overlay.url,
@@ -674,7 +697,7 @@ export default function MapViewer(props: Props) {
       )}
       <div className="map-identity">
         <i />
-        NISAR OBSERVATION EXPLORER <span>WGS84</span>
+        {(props.title ?? "NISAR observation explorer").toUpperCase()} <span>WGS84</span>
       </div>
       <div className="map-tools">
         <button

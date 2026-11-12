@@ -522,7 +522,8 @@ def flores(processed, out):
         "change_types": ["earthquake"],
         "primary_layer": "los" if "los" in pair["layers"] else "disturbance",
         "headline": "Radar coherence across the M7.8 Flores earthquake.",
-        "summary": "A magnitude 7.8 earthquake struck near Ende on 14 August 2026. NISAR imaged Flores on 12 and "
+        "summary": "A magnitude 7.8 earthquake struck offshore north of Flores, 66 km NNW of Ende, on "
+        "14 August 2026. NISAR imaged Flores on 12 and "
         "24 August, two days before and ten days after.",
         "status": "quality_limited",
         "event": {

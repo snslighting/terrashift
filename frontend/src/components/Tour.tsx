@@ -118,17 +118,32 @@ const seenBefore = () => {
 };
 
 const AUTOPLAY_MS = 8000;
+/** How long the first-visit invite stays before it tucks itself away. */
+const INVITE_MS = 12000;
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const [step, setStep] = useState<number | null>(null),
     [autoplay, setAutoplay] = useState(false),
-    [invite, setInvite] = useState(false);
+    [invite, setInvite] = useState(false),
+    onHome = useLocation().pathname.replace(/\/+$/, "") === "";
   useEffect(() => {
-    // Invite first-time visitors once, after the page has settled.
-    if (seenBefore()) return;
-    const t = setTimeout(() => setInvite(true), 2500);
-    return () => clearTimeout(t);
-  }, []);
+    // Invite first-time visitors once, on the home page only, after it has settled.
+    // It never sits over data on other pages (the header Tour button stays there),
+    // counts as seen once shown, and tucks itself away after a few seconds.
+    if (!onHome || seenBefore()) {
+      setInvite(false);
+      return;
+    }
+    const show = setTimeout(() => {
+      remember();
+      setInvite(true);
+    }, 2500);
+    const hide = setTimeout(() => setInvite(false), 2500 + INVITE_MS);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [onHome]);
   const start = useCallback((play = false) => {
     remember();
     setInvite(false);
