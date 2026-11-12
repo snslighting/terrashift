@@ -9,7 +9,7 @@ description = "TerraShift: NISAR surface-change processing, GNSS comparison and 
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["earthaccess>=0.16,<1", "h5py>=3.12,<4", "numpy>=2,<3", "python-dotenv>=1,<2", "tinynetrc>=1.3,<2", "filelock>=3,<4", "scipy>=1.14,<2", "pyproj>=3.7,<4", "rasterio>=1.4,<2", "matplotlib>=3.9,<4"]
+dependencies = ["earthaccess>=0.16,<1", "h5py>=3.12,<4", "numpy>=2,<3", "python-dotenv>=1,<2", "tinynetrc>=1.3,<2", "filelock>=3,<5", "scipy>=1.14,<2", "pyproj>=3.7,<4", "rasterio>=1.4,<2", "matplotlib>=3.9,<4"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
