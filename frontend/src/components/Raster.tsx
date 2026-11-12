@@ -22,10 +22,26 @@ export function paint(
   context.putImageData(pixels, 0, 0);
 }
 
+/**
+ * Image URL for drawing a grid on the map. Uses a blob: URL (allowed by strict
+ * content-security policies that block data: fetches) and caches one per grid,
+ * layer and colour range, so switching back and forth does not repaint.
+ */
+const rasterCache = new WeakMap<Grid, Map<string, string>>();
 export function rasterURL(grid: Grid, kind: LayerKind, range: [number, number]) {
+  const key = `${kind}:${range[0]}:${range[1]}`;
+  let byKey = rasterCache.get(grid);
+  if (!byKey) rasterCache.set(grid, (byKey = new Map()));
+  const hit = byKey.get(key);
+  if (hit) return hit;
   const c = document.createElement("canvas");
   paint(c, grid, kind, range);
-  return c.toDataURL();
+  const encoded = atob(c.toDataURL("image/png").split(",")[1]),
+    bytes = new Uint8Array(encoded.length);
+  for (let i = 0; i < encoded.length; i++) bytes[i] = encoded.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+  byKey.set(key, url);
+  return url;
 }
 
 export function Raster({

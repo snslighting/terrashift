@@ -20,4 +20,5 @@ frontend/.env*
 !frontend/.env.example
 frontend/*.tsbuildinfo
 website-v2/
+website-hosted/
 frontend/e2e/output/

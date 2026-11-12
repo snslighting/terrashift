@@ -30,6 +30,15 @@ const grids = new Map<string, Promise<Grid>>();
 async function bytes(path: string) {
   const response = await fetch(asset("evidence/" + path));
   if (!response.ok) throw Error(`Evidence grid unavailable (${response.status}).`);
+  // Hosts that serve only standard web types get the same bytes as base64 in JSON
+  // (scripts/hosted.mjs); the decoded grid is identical.
+  if (path.endsWith(".json")) {
+    const { base64 } = (await response.json()) as { base64: string };
+    const raw = atob(base64),
+      out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out.buffer;
+  }
   return response.arrayBuffer();
 }
 export function loadGrid(pair: Pair, entry: LayerEntry): Promise<Grid> {

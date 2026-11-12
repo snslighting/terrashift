@@ -64,7 +64,7 @@ export default function Globe({
     (async () => {
       try {
         const THREE = await import("three");
-        const geo = (await fetch(asset("geo/countries.geojson")).then((r) =>
+        const geo = (await fetch(asset("geo/countries.json")).then((r) =>
           r.json(),
         )) as GeoJSON.FeatureCollection;
         if (disposed) return;

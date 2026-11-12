@@ -164,7 +164,7 @@ export default function MapViewer(props: Props) {
         // basemaps. Tiles cover them when they load; with no network they show through.
         m.addSource("outlines", {
           type: "geojson",
-          data: new URL(asset("geo/countries.geojson"), location.href).href,
+          data: new URL(asset("geo/countries.json"), location.href).href,
         });
         m.addLayer(
           {
@@ -174,6 +174,36 @@ export default function MapViewer(props: Props) {
             paint: { "fill-color": "#14243a" },
           },
           "geographic",
+        );
+        // A 10-degree graticule gives the offline map a sense of place and scale.
+        const lines: GeoJSON.Feature[] = [];
+        for (let lon = -180; lon <= 180; lon += 10)
+          lines.push({
+            type: "Feature",
+            properties: {},
+            geometry: { type: "LineString", coordinates: [[lon, -85], [lon, 85]] },
+          });
+        for (let lat = -80; lat <= 80; lat += 10)
+          lines.push({
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: Array.from({ length: 73 }, (_, i) => [-180 + i * 5, lat]),
+            },
+          });
+        m.addSource("graticule", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: lines },
+        });
+        m.addLayer(
+          {
+            id: "offline-graticule",
+            type: "line",
+            source: "graticule",
+            paint: { "line-color": "#2a4460", "line-width": 0.5, "line-opacity": 0.6 },
+          },
+          "offline-land",
         );
         m.addLayer(
           {
