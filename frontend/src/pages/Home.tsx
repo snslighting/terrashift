@@ -21,6 +21,7 @@ import { useApp, useGrids } from "../lib/context";
 import { Raster } from "../components/Raster";
 import RadarDiagram from "../components/RadarDiagram";
 import { ChangeIcon } from "../components/Evidence";
+import { PlaceGallery } from "../components/Discovery";
 import { layerInfo } from "../lib/layers";
 import { longDate } from "../lib/science";
 import type { ChangeType, StudyCase } from "../lib/types";
@@ -304,9 +305,24 @@ export default function Home() {
           ))}
         </div>
       </section>
+      <section className="home-section sample-places-section">
+        <Reveal>
+          <Eyebrow>04 / TRY A PLACE</Eyebrow>
+          <h2>One click, real NISAR data.</h2>
+          <p className="section-description">
+            Wetlands, farms, volcanoes, ice and sinking cities. Each opens the explorer with NASA's own
+            preview images for that place, ready to scrub through time.
+          </p>
+        </Reveal>
+        <PlaceGallery compact limit={8} />
+        <Link to="/discoveries" className="text-button">
+          All sample places
+          <ArrowUpRight size={16} />
+        </Link>
+      </section>
       <section className="home-section world-callout">
         <Reveal>
-          <Eyebrow>04 / YOUR NEXT PERSPECTIVE</Eyebrow>
+          <Eyebrow>05 / YOUR NEXT PERSPECTIVE</Eyebrow>
           <h2>
             Where will
             <br />

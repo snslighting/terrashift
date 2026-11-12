@@ -1,6 +1,23 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import {
+  AcquisitionCalendar,
+  PlaceCard,
+  PlaceGallery,
+  PolarizationSwitch,
+  StatusLadder,
+  SwipeCompare,
+  TimeScrubber,
+  kindLabels,
+  productDates,
+  usePreview,
+} from "../components/Discovery";
+import { presetById, type Preset } from "../lib/presets";
+import { timeline } from "../lib/catalogStats";
+import { footprintBounds, previewChoices } from "../lib/browse";
+import { previewImage, downloadCanvas } from "../lib/mapImage";
+import type { Basemap } from "../components/MapViewer";
+import {
   Search,
   ArrowRight,
   ChevronDown,
@@ -14,6 +31,8 @@ import {
   LocateFixed,
   PanelLeftClose,
   PanelLeftOpen,
+  ImageDown,
+  Sheet,
 } from "lucide-react";
 import {
   discover,
@@ -26,6 +45,7 @@ import {
 import {
   pointBBox,
   downloadJSON,
+  downloadCSV,
   regionalStats,
   validBBox,
   inspect,
@@ -33,7 +53,7 @@ import {
 } from "../lib/science";
 import { useApp, useGrids } from "../lib/context";
 import { format, layerInfo, studyRange } from "../lib/layers";
-import { validationLabel } from "../lib/evidence";
+import { statusLevel, trustOf, validationLabel } from "../lib/evidence";
 import type {
   BBox,
   Discovery,
@@ -42,6 +62,7 @@ import type {
   Pixel,
   Place,
   Product,
+  ProductKind,
   Selection,
   Station,
 } from "../lib/types";
@@ -75,7 +96,7 @@ const datePresets: [string, number][] = [
 ];
 export default function Explorer() {
   const { catalog, selection, setSelection, error: researchError } = useApp();
-  const [params] = useSearchParams(),
+  const [params, setParams] = useSearchParams(),
     [query, setQuery] = useState(""),
     [places, setPlaces] = useState<Place[]>([]),
     [searching, setSearching] = useState(false),
@@ -85,9 +106,11 @@ export default function Explorer() {
     [product, setProduct] = useState<Product>(),
     [pairId, setPairId] = useState<string | null>(null),
     [layer, setLayer] = useState<LayerKind>("disturbance"),
-    [basemap, setBasemap] = useState<"satellite" | "terrain" | "geographic">(
-      "satellite",
-    ),
+    [basemap, setBasemap] = useState<Basemap>("satellite"),
+    [kind, setKind] = useState<ProductKind>("GUNW"),
+    [choice, setChoice] = useState("combined"),
+    [preset, setPreset] = useState<Preset>(),
+    [comparing, setComparing] = useState(false),
     [opacity, setOpacity] = useState(0.8),
     [stations, setStations] = useState(true),
     [start, setStart] = useState(() => presetStart(365)),
@@ -105,6 +128,8 @@ export default function Explorer() {
     }>(),
     [boundsOpen, setBoundsOpen] = useState(false),
     [bounds, setBounds] = useState("");
+  const wantedProduct = useRef<string | null>(null),
+    restored = useRef(false);
   const controller = useRef<AbortController>(null),
     searchController = useRef<AbortController>(null);
   const tourDialog = useRef<HTMLElement>(null);
@@ -145,6 +170,18 @@ export default function Explorer() {
     kinds = pair ? (Object.keys(pair.layers) as LayerKind[]) : [],
     active = pair?.layers[layer] ? layer : kinds[0],
     { grids, loading: gridsLoading } = useGrids(pair, kinds);
+  // Products of the chosen family, oldest first (scrubber, calendar order).
+  const series = useMemo(() => (result ? timeline(result.products, kind) : []), [result, kind]);
+  const listed = useMemo(() => [...series].reverse(), [series]);
+  const { state: preview, retry: retryPreview } = usePreview(pair ? undefined : product, choice);
+  const shown =
+    preview.status === "ready" ? preview.image : preview.status === "loading" ? preview.thumb : undefined;
+  const level = statusLevel(product, pair);
+  // Fit the map to the open product, rounded so scrubbing one track does not jitter the view.
+  const productFocus = useMemo(() => {
+    const b = product && !pair ? footprintBounds(product) : null;
+    return b ? (b.map((v, i) => (i < 2 ? Math.floor(v * 4) / 4 : Math.ceil(v * 4) / 4)) as BBox) : undefined;
+  }, [product?.id, pair?.id]);
   const overlay = useMemo(
     () =>
       pair && active && grids[active]
@@ -153,8 +190,16 @@ export default function Explorer() {
             url: rasterURL(grids[active]!, active, studyRange(study!, active)),
             coordinates: pair.coordinates,
           }
-        : undefined,
-    [pair?.id, active, grids],
+        : shown && product
+          ? {
+              key: `preview-${product.id}-${choice}`,
+              url: shown.url,
+              coordinates: shown.coordinates,
+              smooth: true,
+              outline: false,
+            }
+          : undefined,
+    [pair?.id, active, grids, shown?.url, product?.id, choice],
   );
   const markers = useMemo(
     () =>
@@ -177,7 +222,41 @@ export default function Explorer() {
       choose({ name: `${+lat}°, ${+lon}°`, bbox: pointBBox(+lon, +lat) });
     const wanted = params.get("study") ?? params.get("case");
     if (wanted) openCase(wanted);
+    if (restored.current || !catalog) return;
+    restored.current = true;
+    // Shared discovery views: ?preset=… or ?area=w,s,e,n&type=GCOV&product=<granule>&from=&to=
+    const fromPreset = presetById(params.get("preset"));
+    const area = params.get("area")?.split(",").map(Number) as BBox | undefined;
+    const type = params.get("type");
+    if (type === "GUNW" || type === "GCOV") setKind(type);
+    if (params.get("product")) wantedProduct.current = params.get("product");
+    if (params.get("image")) setChoice(params.get("image")!);
+    const from = params.get("from") ?? undefined,
+      to = params.get("to") ?? undefined;
+    if (fromPreset) runPreset(fromPreset, type === "GUNW" || type === "GCOV" ? type : undefined, from, to);
+    else if (area?.length === 4 && validBBox(area)) {
+      const sel = { name: params.get("name") ?? "Shared area", bbox: area };
+      choose(sel);
+      find(sel, from, to, type === "GUNW" || type === "GCOV" ? type : undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog]);
+  // Keep a discovery view in the page address, so a link restores it.
+  useEffect(() => {
+    if (!result || !selection || pair) return;
+    const next: Record<string, string> = {
+      area: selection.bbox.map((v) => +v.toFixed(4)).join(","),
+      name: selection.name,
+      type: kind,
+      from: result.query.start,
+      to: result.query.end,
+    };
+    if (preset) next.preset = preset.id;
+    if (product) next.product = product.granule;
+    if (product && choice !== "combined") next.image = choice;
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, kind, product?.id, choice, preset?.id]);
   useEffect(
     () => () => {
       controller.current?.abort();
@@ -208,7 +287,18 @@ export default function Explorer() {
     setPlaces([]);
     setError("");
     setJob(undefined);
+    setPreset(undefined);
+    setComparing(false);
     setBounds(s.bbox.map((v) => v.toFixed(4)).join(", "));
+  }
+  /** One click: set the area, theme and dates of a sample place, and search. */
+  function runPreset(p: Preset, type?: ProductKind, from?: string, to?: string) {
+    const sel = { name: `${p.name}, ${p.region}`, bbox: p.bbox };
+    choose(sel);
+    setPreset(p);
+    setKind(type ?? p.kind);
+    setChoice("combined");
+    find(sel, from ?? NISAR_LAUNCH, to ?? isoDay(new Date()), type ?? p.kind);
   }
   function openCase(id: string) {
     const c =
@@ -247,8 +337,15 @@ export default function Explorer() {
       if (!c.signal.aborted) setSearching(false);
     }
   }
-  async function find() {
-    if (!selection) return;
+  async function find(
+    area: Selection | undefined = selection,
+    from = start,
+    to = end,
+    prefer?: ProductKind,
+  ) {
+    if (!area) return;
+    setStart(from);
+    setEnd(to);
     controller.current?.abort();
     const c = new AbortController();
     controller.current = c;
@@ -261,8 +358,26 @@ export default function Explorer() {
     setStation(undefined);
     setJob(undefined);
     try {
-      const d = await discover(selection, start, end, c.signal);
-      if (!c.signal.aborted) setResult(d);
+      const d = await discover(area, from, to, c.signal);
+      if (c.signal.aborted) return;
+      setResult(d);
+      // Open a picture straight away: the shared product, else the latest of the
+      // preferred family (or of the other family when the preferred has none).
+      const want = prefer ?? kind;
+      const family: ProductKind = d.products.some((p) => p.kind === want)
+        ? want
+        : want === "GUNW"
+          ? "GCOV"
+          : "GUNW";
+      const shared = d.products.find((p) => p.granule === wantedProduct.current);
+      wantedProduct.current = null;
+      const first = shared ?? timeline(d.products, family).at(-1);
+      setKind(shared?.kind ?? family);
+      if (first) {
+        setProduct(first);
+        setPairId(first.cached_pair);
+        setResultOpen(true);
+      }
     } catch (e) {
       if (!c.signal.aborted) setError((e as Error).message);
     } finally {
@@ -271,6 +386,7 @@ export default function Explorer() {
   }
   function selectProduct(p: Product) {
     setProduct(p);
+    if (p.kind !== kind) setKind(p.kind);
     setPairId(p.cached_pair);
     setResultOpen(true);
     setPixel(undefined);
@@ -303,6 +419,35 @@ export default function Explorer() {
       exported_utc: new Date().toISOString(),
       note: "Pixel samples describe display cells (means of accepted native pixels). Coherence loss shows surface change, not its cause.",
     });
+  const exportProducts = () =>
+    result &&
+    downloadCSV(`terrashift-products-${isoDay(new Date())}.csv`, [
+      ["kind", "granule", "date", "before", "after", "track", "frame", "orbit", "frequencies", "status_level", "preview", "metadata"],
+      ...[...result.products]
+        .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+        .map((p) => [
+          p.kind,
+          p.granule,
+          p.date,
+          p.before,
+          p.after,
+          p.track,
+          p.frame,
+          p.orbit,
+          p.frequencies.join("+"),
+          statusLevel(p, findPair(catalog, p.cached_pair)?.pair),
+          p.browse.combined ?? "",
+          p.source_url,
+        ]),
+    ]);
+  const exportPreview = () => {
+    if (preview.status !== "ready" || !product) return;
+    const label =
+      previewChoices(product).find((o) => o.id === choice)?.label ?? kindLabels[product.kind].short;
+    previewImage(product, preview.image, label, selection?.name ?? "", level)
+      .then((c) => downloadCanvas(c, `terrashift-nasa-preview-${product.date}-${product.kind}.png`))
+      .catch(() => setError("The map image could not be made from this preview."));
+  };
   const summary = useMemo(
     () =>
       pair && active && grids[active] && selection
@@ -504,7 +649,7 @@ export default function Explorer() {
         </div>
         <button
           className="button discover-button"
-          onClick={find}
+          onClick={() => find()}
           disabled={!selection || loading}
         >
           {loading ? (
@@ -516,7 +661,7 @@ export default function Explorer() {
           <ArrowRight size={16} />
         </button>
         <p className="tiny">
-          GUNW provisional collection · up to 50 results.
+          Ground motion (GUNW) and backscatter (GCOV) provisional collections · up to 100 of each.
           <br />
           Catalog availability does not establish measurement quality.
         </p>
@@ -545,6 +690,38 @@ export default function Explorer() {
                 {result.offline ? "STORED · OFFLINE" : result.bounded ? "BOUNDED SEARCH" : "NASA CMR"}
               </span>
             </div>
+            {result.returned > 0 && (
+              <>
+                <PlaceCard products={result.products} preset={preset} hits={result.hits_by_kind} />
+                <AcquisitionCalendar
+                  products={result.products}
+                  active={product}
+                  onPick={selectProduct}
+                />
+                <div className="segmented kind-switch" role="group" aria-label="Data type">
+                  {(["GUNW", "GCOV"] as const).map((k) => (
+                    <button
+                      key={k}
+                      className={kind === k ? "active" : ""}
+                      aria-pressed={kind === k}
+                      onClick={() => {
+                        setKind(k);
+                        setChoice("combined");
+                        const latest = timeline(result.products, k).at(-1);
+                        if (latest) selectProduct(latest);
+                      }}
+                    >
+                      {kindLabels[k].short}
+                      <small>{result.products.filter((p) => p.kind === k).length}</small>
+                    </button>
+                  ))}
+                </div>
+                <button className="text-button" onClick={exportProducts}>
+                  <Sheet size={14} />
+                  Product list (CSV)
+                </button>
+              </>
+            )}
             {result.offline && (
               <div className="offline-notice" role="status">
                 <strong>NASA's live catalog could not be reached.</strong> Showing the processed
@@ -558,22 +735,32 @@ export default function Explorer() {
                 Valley, Caracas or Flores, or search again when you are online.
               </Empty>
             ) : !result.returned ? (
-              <Empty title="No suitable GUNW data">
-                No products were returned for this area and date range. Try a
-                broader period or a nearby region. Other NISAR product types are
-                not searched here.
+              <Empty title="No NISAR products here yet">
+                Neither ground-motion (GUNW) nor backscatter (GCOV) products were
+                returned for this area and date range. Try a broader period, a
+                nearby region, or one of the sample places.
+              </Empty>
+            ) : !listed.length ? (
+              <Empty title={`No ${kindLabels[kind].short.toLowerCase()} products`}>
+                Switch the data type above to see the other family.
               </Empty>
             ) : (
-              result.products.map((p) => (
+              listed.map((p) => (
                 <button
                   key={p.id}
                   className={`product-card ${p.id === product?.id ? "active" : ""}`}
                   onClick={() => selectProduct(p)}
                 >
                   <span className="product-dates">
-                    {p.before?.slice(0, 10) ?? "Unknown"}
-                    <ArrowRight size={13} />
-                    {p.after?.slice(0, 10) ?? "Unknown"}
+                    {p.kind === "GUNW" ? (
+                      <>
+                        {p.before?.slice(0, 10) ?? "Unknown"}
+                        <ArrowRight size={13} />
+                        {p.after?.slice(0, 10) ?? "Unknown"}
+                      </>
+                    ) : (
+                      (p.date ?? "Unknown date")
+                    )}
                   </span>
                   <span className="product-detail">
                     TRACK {p.track ?? "?"} · FRAME {p.frame ?? "?"} ·{" "}
@@ -584,8 +771,10 @@ export default function Explorer() {
                       className={`data-pill ${p.cached_pair != null ? "cached" : ""}`}
                     >
                       {p.cached_pair != null
-                        ? "Processed · open map"
-                        : "Metadata · not yet processed"}
+                        ? "Processed by TerraShift · open map"
+                        : p.browse.combined || p.browse.bands.length
+                          ? `NASA preview${p.browse.bands.length ? ` · ${[...new Set(p.browse.bands.map((b) => b.polarization))].join(" / ")}` : ""}`
+                          : "Catalog record"}
                     </span>
                     <ArrowRight size={15} />
                   </span>
@@ -626,30 +815,8 @@ export default function Explorer() {
                 <ArrowRight size={17} />
               </button>
             ))}
-            <div className="global-places">
-              {[
-                ["Tashkent", 69.24, 41.3],
-                ["Jakarta", 106.85, -6.21],
-                ["Reykjavík", -21.94, 64.15],
-              ].map(([n, lon, lat]) => (
-                <button
-                  key={n}
-                  onClick={() =>
-                    choose({
-                      name: String(n),
-                      bbox: pointBBox(Number(lon), Number(lat)),
-                    })
-                  }
-                >
-                  {n}
-                  <ArrowRight size={12} />
-                </button>
-              ))}
-            </div>
-            <p className="tiny">
-              These shortcuts select coordinates. Product availability is
-              discovered live.
-            </p>
+            <div className="section-caption">TRY THESE PLACES · ONE CLICK</div>
+            <PlaceGallery compact onPick={(p) => runPreset(p)} />
           </div>
         )}
         <div className="panel-bottom">
@@ -679,7 +846,16 @@ export default function Explorer() {
             <option value="satellite">Satellite</option>
             <option value="geographic">Geographic</option>
             <option value="terrain">Terrain</option>
+            <option value="optical">
+              Optical on {(product?.date ?? pair?.after ?? "latest day").slice(0, 10)}
+            </option>
           </select>
+          {preview.status === "ready" && !pair && (
+            <button onClick={exportPreview} aria-label="Save this map image">
+              <ImageDown size={15} />
+              <span>Map image</span>
+            </button>
+          )}
           <button onClick={exportData} aria-label="Export evidence">
             <Download size={15} />
             <span>Export evidence</span>
@@ -697,10 +873,12 @@ export default function Explorer() {
               ) : undefined
             }
             markers={markers}
-            focus={study?.bbox}
+            focus={study?.bbox ?? productFocus}
             selection={selection}
-            products={result?.products}
+            products={pair ? result?.products : listed}
             basemap={basemap}
+            opticalDate={(product?.date ?? pair?.after)?.slice(0, 10)}
+            activeProduct={product?.id}
             opacity={opacity}
             onSelect={choose}
             onProduct={(id) => {
@@ -726,6 +904,46 @@ export default function Explorer() {
             }}
           />
         </Suspense>
+        {!pair && product && shown && (
+          <div className="map-ribbon preview" role="note">
+            NASA PREVIEW · NOT PROCESSED BY TERRASHIFT
+            {shown.approximate ? " · PLACEMENT APPROXIMATE" : ""}
+          </div>
+        )}
+        {!pair && product && shown && (
+          <div className="layer-panel preview-layer-panel">
+            <div className="section-caption">NASA PREVIEW</div>
+            <label className="range-label">
+              Image opacity<span>{Math.round(opacity * 100)}%</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step=".05"
+                value={opacity}
+                onChange={(e) => setOpacity(+e.target.value)}
+                aria-label="Preview image opacity"
+              />
+            </label>
+            <p className="tiny">Lower it to see the basemap, or the optical view of the same day, underneath.</p>
+          </div>
+        )}
+        {!pair && result && series.length > 1 && (
+          <TimeScrubber
+            products={series}
+            active={product}
+            onPick={selectProduct}
+            onCompare={() => product && setComparing(true)}
+          />
+        )}
+        {comparing && product && (
+          <SwipeCompare
+            products={series}
+            start={product}
+            choice={choice}
+            onClose={() => setComparing(false)}
+          />
+        )}
         {pair && (
           <div className="layer-panel">
             <div className="section-caption">MAP LAYER</div>
@@ -798,6 +1016,7 @@ export default function Explorer() {
                 </div>
                 {resultOpen && (
                   <>
+                    <StatusLadder level={level} trust={trustOf(pair)} />
                     {station && pair.comparison ? (
                       <StationCard station={station} reference={pair.comparison.reference} />
                     ) : pixel ? (
@@ -857,63 +1076,99 @@ export default function Explorer() {
                 <>
                   <span className="eyebrow">
                     <span />
-                    CATALOG PRODUCT
+                    {level >= 2 ? "NASA PREVIEW" : "CATALOG RECORD"} · {kindLabels[product.kind].long.toUpperCase()}
                   </span>
-                  <h2>Product discovered.</h2>
-                  <StatusBadge status="processing_unavailable" />
+                  <h2>{productDates(product)}</h2>
                   <div className="result-date">
-                    {product.before ? longDate(product.before.slice(0, 10)) : "Unknown date"} →{" "}
-                    {product.after ? longDate(product.after.slice(0, 10)) : "Unknown date"}
+                    Track {product.track ?? "?"} / frame {product.frame ?? "?"} ·{" "}
+                    {product.orbit?.toLowerCase() ?? "unknown orbit"}
                   </div>
                   {resultOpen && (
                     <>
-                      <p className="tiny">
-                        The footprint confirms coverage. Maps appear once this
-                        product has been downloaded and processed.
-                      </p>
+                      <StatusLadder level={level} />
+                      {preview.status === "loading" && (
+                        <p className="preview-status" role="status">
+                          <RefreshCw size={14} className="spin" /> Loading NASA's preview image…{" "}
+                          {preview.progress > 0 && `${Math.round(preview.progress * 100)}%`}
+                        </p>
+                      )}
+                      {preview.status === "error" && (
+                        <div className="warning compact" role="alert">
+                          <strong>Preview unavailable.</strong>
+                          <p>
+                            {preview.message} The footprint outline and the place report still show
+                            what NISAR covered.
+                          </p>
+                          <button className="text-button" onClick={retryPreview}>
+                            <RefreshCw size={14} /> Retry
+                          </button>
+                        </div>
+                      )}
+                      {level === 1 && (
+                        <p className="tiny">
+                          NASA lists no preview image for this product. The footprint shows the area
+                          it covers.
+                        </p>
+                      )}
+                      <PolarizationSwitch product={product} choice={choice} onChoice={setChoice} />
+                      {product.kind === "GUNW" && level >= 2 && (
+                        <p className="tiny">
+                          Interferogram preview: if colours repeat in bands, one full cycle is about
+                          12 cm of motion toward or away from the satellite (half the 24 cm L-band
+                          wavelength). Grainy areas lost coherence; dark purple inside the frame has
+                          no data.
+                        </p>
+                      )}
                       <dl className="details">
                         <div>
-                          <dt>Track / frame</dt>
-                          <dd>
-                            {product.track} / {product.frame}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Orbit</dt>
-                          <dd>{product.orbit}</dd>
-                        </div>
-                        <div>
                           <dt>Product</dt>
-                          <dd>GUNW · provisional</dd>
+                          <dd>{product.kind} · provisional</dd>
                         </div>
+                        {product.frequencies.length > 0 && (
+                          <div>
+                            <dt>Frequencies</dt>
+                            <dd>{product.frequencies.join(", ")} (L-band)</dd>
+                          </div>
+                        )}
+                        {product.polarizations.length > 0 && (
+                          <div>
+                            <dt>Polarizations</dt>
+                            <dd>{product.polarizations.join(", ")}</dd>
+                          </div>
+                        )}
                       </dl>
                       <code className="granule-id">{product.granule}</code>
                       {product.metadata_warnings.length > 0 && (
                         <p className="warning">{product.metadata_warnings.join(" ")}</p>
                       )}
-                      <button
-                        className="text-button"
-                        onClick={async () => {
-                          if (!selection) return;
-                          setJob({
-                            status: "checking",
-                            message: "Checking processing availability…",
-                          });
-                          try {
-                            setJob(await requestProcessing(product, selection));
-                          } catch (e) {
-                            setJob({ status: "failed", message: (e as Error).message });
-                          }
-                        }}
-                      >
-                        <Satellite size={15} />
-                        Check processing availability
-                      </button>
+                      {backendConfigured && (
+                        <button
+                          className="text-button"
+                          onClick={async () => {
+                            if (!selection) return;
+                            setJob({
+                              status: "checking",
+                              message: "Checking processing availability…",
+                            });
+                            try {
+                              setJob(await requestProcessing(product, selection));
+                            } catch (e) {
+                              setJob({ status: "failed", message: (e as Error).message });
+                            }
+                          }}
+                        >
+                          <Satellite size={15} />
+                          Request processing
+                        </button>
+                      )}
                       {job && (
                         <div className="warning compact" role="status">
                           <strong>{job.status.replaceAll("_", " ")}</strong>
                           <p>{job.message}</p>
                         </div>
+                      )}
+                      {product.browse.combined && (
+                        <SourceLink href={product.browse.combined}>NASA preview image (full size)</SourceLink>
                       )}
                       <SourceLink href={product.source_url}>View original metadata</SourceLink>
                       <SourceLink href="https://search.asf.alaska.edu/#/?dataset=NISAR">

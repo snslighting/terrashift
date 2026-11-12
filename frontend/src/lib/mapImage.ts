@@ -2,7 +2,9 @@ import { paint } from "../components/Raster";
 import { color, layerInfo } from "./layers";
 import { longDate } from "./science";
 import { groundMotionWarning, validationLabel } from "./evidence";
-import type { Grid, LayerKind, Pair, StudyCase } from "./types";
+import type { Grid, LayerKind, Pair, Product, StudyCase } from "./types";
+import type { PreviewImage } from "./browse";
+import { ladder } from "./evidence";
 
 /**
  * Render a self-explaining PNG of one map layer: the grid at full resolution
@@ -108,6 +110,91 @@ export function mapImage(
   g.fillStyle = "#8ea3b6";
   g.font = "400 13px 'DM Sans', system-ui, sans-serif";
   g.fillText(`Source: NASA–ISRO NISAR ${pair.granule}`, M, H - 44);
+  g.fillText(
+    `Made with TerraShift on ${new Date().toISOString().slice(0, 10)}. An independent project, not an official NASA or ISRO product.`,
+    M,
+    H - 22,
+  );
+  return c;
+}
+
+/**
+ * PNG of a NASA preview as shown on the map: the image, what it is, its status
+ * level and the attribution line. Never presented as a TerraShift measurement.
+ */
+export async function previewImage(
+  product: Product,
+  image: PreviewImage,
+  label: string,
+  place: string,
+  level: number,
+): Promise<HTMLCanvasElement> {
+  const img = new Image();
+  img.src = image.url;
+  await img.decode();
+  const W = 1400,
+    M = 56,
+    box = 900,
+    scale = Math.min(box / img.width, box / img.height),
+    w = img.width * scale,
+    h = img.height * scale,
+    top = M + 130,
+    H = top + box + 110,
+    c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#070d19";
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "#55d9f3";
+  g.font = "600 15px 'DM Sans', system-ui, sans-serif";
+  g.fillText(`TERRASHIFT · NASA PREVIEW · ${product.kind}`, M, M + 4);
+  g.fillStyle = "#f5f8ff";
+  g.font = "500 38px 'Space Grotesk', system-ui, sans-serif";
+  g.fillText(place || "NISAR observation", M, M + 52);
+  g.fillStyle = "#a5bacb";
+  g.font = "400 19px 'DM Sans', system-ui, sans-serif";
+  const dates =
+    product.kind === "GUNW" && product.before && product.after
+      ? `${longDate(product.before.slice(0, 10))} → ${longDate(product.after.slice(0, 10))}`
+      : product.date
+        ? longDate(product.date)
+        : "";
+  g.fillText(
+    `${label} · ${dates} · ${product.orbit?.toLowerCase() ?? ""} orbit, track ${product.track ?? "?"}, frame ${product.frame ?? "?"}`,
+    M,
+    M + 86,
+  );
+  g.fillStyle = "#0b1526";
+  g.fillRect(M, top, box, box);
+  g.drawImage(img, M + (box - w) / 2, top + (box - h) / 2, w, h);
+  g.fillStyle = "#3a1f0ce6";
+  g.fillRect(M, top, box, 40);
+  g.fillStyle = "#ffcf9e";
+  g.font = "600 16px 'DM Sans', system-ui, sans-serif";
+  g.fillText("NASA PREVIEW · NOT PROCESSED OR VALIDATED BY TERRASHIFT", M + 16, top + 26);
+  const x = M + box + 44,
+    tw = W - x - M;
+  g.fillStyle = "#f5f8ff";
+  g.font = "600 17px 'DM Sans', system-ui, sans-serif";
+  g.fillText("STATUS", x, top + 14);
+  let y = top + 46;
+  for (const r of ladder) {
+    g.fillStyle = r.level <= level ? "#55d9f3" : "#3b4a5c";
+    g.beginPath();
+    g.arc(x + 9, y - 5, 9, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = r.level <= level ? "#f5f8ff" : "#6d7f91";
+    g.font = "500 15px 'DM Sans', system-ui, sans-serif";
+    g.fillText(`${r.level}. ${r.short}`, x + 26, y);
+    y += 30;
+  }
+  y = wrap(g, ladder[level - 1].text, x, y + 14, tw, 21, "#a5bacb", "400 14px 'DM Sans', system-ui, sans-serif");
+  if (image.approximate)
+    y = wrap(g, "Single-polarization image in the product's own map grid; placement is approximate.", x, y + 10, tw, 21, "#8ea3b6", "400 14px 'DM Sans', system-ui, sans-serif");
+  g.fillStyle = "#8ea3b6";
+  g.font = "400 13px 'DM Sans', system-ui, sans-serif";
+  g.fillText(`Source: NASA/JPL-Caltech NISAR preview via NASA ASF DAAC · ${product.granule}`, M, H - 44);
   g.fillText(
     `Made with TerraShift on ${new Date().toISOString().slice(0, 10)}. An independent project, not an official NASA or ISRO product.`,
     M,

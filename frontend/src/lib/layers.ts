@@ -13,12 +13,15 @@ const sequential: RGB[] = [
   [250, 153, 25],
   [252, 255, 164],
 ];
+// The centre is a muted slate, lighter than the page (#070d19) and the empty map,
+// so "no change" never reads as "no data" (blank, transparent cells).
+const NEUTRAL: RGB = [74, 82, 98];
 const diverging: RGB[] = [
   [146, 205, 255],
   [70, 145, 225],
-  [38, 82, 150],
-  [22, 28, 42],
-  [150, 52, 46],
+  [44, 92, 160],
+  NEUTRAL,
+  [160, 60, 52],
   [228, 98, 70],
   [255, 172, 130],
 ];
@@ -26,9 +29,9 @@ const diverging: RGB[] = [
 const activity: RGB[] = [
   [238, 176, 255],
   [190, 110, 235],
-  [112, 60, 160],
-  [22, 28, 42],
-  [24, 92, 96],
+  [118, 66, 168],
+  NEUTRAL,
+  [30, 104, 106],
   [36, 140, 138],
   [78, 186, 176],
 ];

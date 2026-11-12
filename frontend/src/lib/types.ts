@@ -156,10 +156,32 @@ export interface Grid {
   values: Float32Array;
   counts: Uint8Array | Uint16Array;
 }
+/** NISAR product family: interferogram (ground motion) or backscatter by polarization. */
+export type ProductKind = "GUNW" | "GCOV";
+export interface BrowseBand {
+  /** Stable key, e.g. "A_HH". */
+  id: string;
+  frequency: "A" | "B";
+  polarization: string;
+  url: string;
+}
+/** NASA's public preview images for one product (no login needed). */
+export interface BrowseSet {
+  /** Georeferenced lat/lon composite (exact placement). */
+  combined?: string;
+  thumbnail?: string;
+  /** One image per frequency and polarization, in the product's own map grid. */
+  bands: BrowseBand[];
+}
 export interface Product {
   id: string;
   granule: string;
   collection: string;
+  kind: ProductKind;
+  /** Date used for ordering: second date of a GUNW pair, acquisition date of a GCOV. */
+  date: string | null;
+  browse: BrowseSet;
+  frequencies: string[];
   before: string | null;
   after: string | null;
   track: number | null;
@@ -178,6 +200,8 @@ export interface Discovery {
   products: Product[];
   returned: number;
   hits: number | null;
+  /** Catalog matches per product family (null when the search was split). */
+  hits_by_kind?: Partial<Record<ProductKind, number | null>>;
   bounded: boolean;
   queried_utc: string;
   source: string;

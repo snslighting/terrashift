@@ -5,7 +5,7 @@ import { useApp, useGrids } from "../lib/context";
 import { layerInfo } from "../lib/layers";
 import { inspect } from "../lib/science";
 import { futureApplications, narratives } from "../lib/stories";
-import { QuickLookGallery } from "../components/QuickLooks";
+import { PlaceGallery } from "../components/Discovery";
 import type { ChangeType, LayerKind, Pixel, StudyCase } from "../lib/types";
 import { PageIntro, Reveal, SourceLink, Skeleton, Button, Empty } from "../components/UI";
 import {
@@ -275,7 +275,19 @@ export default function Discoveries() {
             ))}
         </>
       )}
-      <QuickLookGallery />
+      <section className="quicklooks" id="sample-places" aria-labelledby="sample-places-title">
+        <span className="eyebrow">
+          <span />
+          AROUND THE WORLD WITH NISAR
+        </span>
+        <h2 id="sample-places-title">Sample places, one click each.</h2>
+        <p className="section-description">
+          Each place opens the explorer, searches NASA's catalog and shows NASA's own preview images on
+          the map, with a date slider. Pictures are NASA previews: TerraShift has not processed,
+          corrected or validated them. Images on the cards are NASA quick-looks from earlier dates.
+        </p>
+        <PlaceGallery />
+      </section>
       <section className="story-applications" aria-labelledby="applications-title">
         <span className="eyebrow">
           <span />

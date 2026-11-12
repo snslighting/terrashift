@@ -7,6 +7,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { crc32, deflateSync } from "node:zlib";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const root = resolve(here, "../../website-v2");
@@ -57,6 +58,81 @@ await new Promise((ok) => server.listen(4176, "127.0.0.1", ok));
 const origin = "http://127.0.0.1:4176";
 await mkdir(out, { recursive: true });
 const catalog = JSON.parse(await readFile(join(root, "evidence/catalog.json"), "utf8"));
+
+// A synthetic NASA-style preview: grey scene inside a black no-data margin.
+function previewPng(w = 64, h = 48) {
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const inside = x >= 6 && x < w - 4 && y >= 5 && y < h - 6,
+        o = y * (w * 4 + 1) + 1 + x * 4,
+        v = inside ? 90 + ((x * 7 + y * 3) % 120) : 0;
+      raw.set([v, v, v, 255], o);
+    }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4),
+      body = Buffer.concat([Buffer.from(type), data]),
+      crc = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr.set([8, 6, 0, 0, 0], 8);
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+const PREVIEW = previewPng();
+const BROWSE = "https://nisar.asf.earthdatacloud.nasa.gov/BROWSE/TEST";
+/** Synthetic catalog records shaped like NASA's (no real product is implied). */
+function cmrItems(url) {
+  const gcov = url.includes("GCOV"),
+    broken = url.includes("bounding_box=0%2C") || url.includes("bounding_box=0,");
+  const dates = gcov ? ["2026-09-27", "2026-10-09", "2026-10-21"] : ["2026-09-15", "2026-09-27", "2026-10-09"];
+  return dates.map((d, i) => {
+    const name = `TEST_${gcov ? "GCOV" : "GUNW"}_${i}${broken ? "_BROKEN" : ""}`;
+    const links = [`${BROWSE}/${name}_LATLON.png`, `${BROWSE}/${name}_LATLON_thumbnail.png`];
+    if (gcov) links.push(`${BROWSE}/${name}_NATIVE_A_HHHH.png`, `${BROWSE}/${name}_NATIVE_A_HVHV.png`);
+    const attrs = [
+      ["TRACK_NUMBER", ["42"]],
+      ["FRAME_NUMBER", ["70"]],
+      ["ASCENDING_DESCENDING", ["ASCENDING"]],
+      ["FREQUENCIES", ["A"]],
+      ["FREQUENCY_A_POLARIZATION", ["HH", "HV"]],
+    ];
+    if (!gcov)
+      attrs.push(
+        ["REFERENCE_ZERO_DOPPLER_START_TIME", [`${dates[Math.max(0, i - 1)]}T10:00:00Z`]],
+        ["SECONDARY_ZERO_DOPPLER_START_TIME", [`${d}T10:00:00Z`]],
+      );
+    return {
+      meta: { "concept-id": `G-${name}` },
+      umm: {
+        GranuleUR: name,
+        CollectionReference: { ShortName: gcov ? "NISAR_L2_GCOV_PROVISIONAL_V1" : "NISAR_L2_GUNW_PROVISIONAL_V1" },
+        TemporalExtent: { RangeDateTime: { BeginningDateTime: `${d}T10:00:00Z` } },
+        RelatedUrls: links.map((URL) => ({ URL, Type: "GET RELATED VISUALIZATION" })),
+        AdditionalAttributes: attrs.map(([Name, Values]) => ({ Name, Values })),
+        SpatialExtent: {
+          HorizontalSpatialDomain: {
+            Geometry: {
+              BoundingRectangles: [
+                { WestBoundingCoordinate: -57.6, SouthBoundingCoordinate: -18.6, EastBoundingCoordinate: -56.4, NorthBoundingCoordinate: -17.4 },
+              ],
+            },
+          },
+        },
+      },
+    };
+  });
+}
+
 const browser = await chromium.launch({ args: ["--use-gl=swiftshader", "--enable-unsafe-swiftshader"] });
 const failures = [];
 const check = async (name, fn) => {
@@ -73,8 +149,15 @@ try {
   // Keep the test hermetic: third-party tiles, geocoder and catalog calls are stubbed.
   await context.route(/^https:\/\/(?!127\.0\.0\.1)/, (route) => {
     const u = route.request().url();
-    if (u.includes("cmr.earthdata.nasa.gov"))
-      return route.fulfill({ contentType: "application/json", body: JSON.stringify({ hits: 0, items: [] }) });
+    if (u.includes("cmr.earthdata.nasa.gov")) {
+      // Only the sample-place checks below search Pantanal; everything else gets an empty catalog.
+      const items = u.includes("-57.5") || u.includes("bounding_box=0") ? cmrItems(u) : [];
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify({ hits: items.length, items }) });
+    }
+    if (u.startsWith(BROWSE))
+      return u.includes("_BROKEN")
+        ? route.fulfill({ status: 404, body: "" })
+        : route.fulfill({ contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PREVIEW });
     return route.fulfill({ status: 204, body: "" });
   });
   const page = await context.newPage();
@@ -192,6 +275,42 @@ try {
   await check("unknown routes fall back to the app's not-found view", async () => {
     await page.goto(origin + base + "does-not-exist");
     await page.getByText("This perspective isn’t here.").waitFor();
+  });
+
+  await check("a sample place opens NASA's preview on the map and scrubs through dates", async () => {
+    await page.goto(origin + base + "explore/");
+    await page.locator(".place-tile", { hasText: "Pantanal" }).click();
+    await page.locator(".map-ribbon.preview").waitFor({ timeout: 15000 });
+    await page.locator(".place-card").waitFor();
+    await page.locator(".acq-calendar svg").waitFor();
+    assert.equal(await page.locator(".status-ladder li.reached").count(), 2);
+    assert.match(page.url(), /preset=pantanal/);
+    assert.match(page.url(), /type=GCOV/);
+    // Polarization switch swaps the image.
+    await page.locator(".polarization-switch button", { hasText: /^HV$/ }).click();
+    await page.waitForFunction(() => /image=A_HV/.test(location.search));
+    // The scrubber moves to the first date.
+    const slider = page.locator(".time-scrubber input[type=range]");
+    await slider.focus();
+    await page.keyboard.press("Home");
+    await page.locator(".map-result-panel h2", { hasText: "27 September 2026" }).waitFor();
+    // Compare two dates: the divider works from the keyboard.
+    await page.getByRole("button", { name: /Compare two dates/ }).click();
+    await page.waitForFunction(() => document.querySelectorAll(".swipe-layer img").length === 2);
+    const divider = page.locator(".swipe-stage input[type=range]");
+    await divider.focus();
+    await page.keyboard.press("ArrowLeft");
+    assert.equal(await divider.inputValue(), "49");
+    await page.keyboard.press("Escape");
+    await page.screenshot({ path: join(out, "explorer-preview.png") });
+  });
+
+  await check("when NASA's image server fails, the footprint and report card remain", async () => {
+    await page.goto(origin + base + "explore/?area=0,-1,1,0&type=GUNW");
+    await page.locator(".map-result-panel [role=alert]", { hasText: "Preview unavailable" }).waitFor({ timeout: 15000 });
+    await page.locator(".place-card").waitFor();
+    assert.equal(await page.locator(".map-ribbon.preview").count(), 0);
+    await page.locator(".map-result-panel").getByRole("button", { name: "Retry" }).waitFor();
   });
 
   await check("phone width: no sideways scrolling and the map stays visible", async () => {

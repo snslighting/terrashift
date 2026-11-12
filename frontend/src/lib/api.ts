@@ -7,16 +7,25 @@ import type {
   Pair,
   Place,
   Product,
+  ProductKind,
   Selection,
   StudyCase,
 } from "./types";
 import { decodeGrid, parseCoordinates, splitBBox } from "./science";
+import { browseLinks } from "./browse";
 export const base = import.meta.env.BASE_URL;
 export const asset = (path: string) => base + path.replace(/^\//, "");
 const api = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 export const backendConfigured = Boolean(api);
 export const CMR = "https://cmr.earthdata.nasa.gov/search/granules.umm_json";
 export const COLLECTION = "NISAR_L2_GUNW_PROVISIONAL_V1";
+/** Catalog short names of the two public NISAR product families TerraShift searches. */
+export const COLLECTIONS: Record<ProductKind, string> = {
+  GUNW: COLLECTION,
+  GCOV: "NISAR_L2_GCOV_PROVISIONAL_V1",
+};
+/** Products requested per family and search box. */
+export const PAGE_SIZE = 100;
 let evidence: Promise<Catalog> | undefined;
 /** Small study-area catalog (~30 kB). Grids load separately, only when drawn. */
 export const loadCatalog = () =>
@@ -216,6 +225,8 @@ async function photon(query: string, signal?: AbortSignal): Promise<Place[]> {
 }
 type UMM = {
   GranuleUR: string;
+  RelatedUrls?: { URL: string; Type?: string }[];
+  TemporalExtent?: { RangeDateTime?: { BeginningDateTime?: string } };
   CollectionReference?: { ShortName: string };
   AdditionalAttributes?: { Name: string; Values: string[] }[];
   SpatialExtent?: {
@@ -277,12 +288,20 @@ export function normalizeProduct(
   for (const study of catalog?.cases ?? [])
     for (const pair of study.pairs)
       if (pair.granule === u.GranuleUR) cache = { study, pair };
-  const before = one("REFERENCE_ZERO_DOPPLER_START_TIME"),
-    after = one("SECONDARY_ZERO_DOPPLER_START_TIME");
+  const collection = u.CollectionReference?.ShortName ?? COLLECTION,
+    kind: ProductKind =
+      collection.includes("GCOV") || u.GranuleUR.includes("_GCOV_") ? "GCOV" : "GUNW";
+  const before = kind === "GUNW" ? one("REFERENCE_ZERO_DOPPLER_START_TIME") : null,
+    after = kind === "GUNW" ? one("SECONDARY_ZERO_DOPPLER_START_TIME") : null,
+    acquired = u.TemporalExtent?.RangeDateTime?.BeginningDateTime ?? null;
   return {
     id: item.meta["concept-id"],
     granule: u.GranuleUR,
-    collection: u.CollectionReference?.ShortName ?? COLLECTION,
+    collection,
+    kind,
+    date: (kind === "GUNW" ? after : acquired)?.slice(0, 10) ?? null,
+    browse: browseLinks(u.RelatedUrls),
+    frequencies: a.FREQUENCIES ?? [],
     before,
     after,
     track: one("TRACK_NUMBER") ? +one("TRACK_NUMBER")! : null,
@@ -297,7 +316,7 @@ export function normalizeProduct(
     status: cache ? "measured_provisional" : "processing_unavailable",
     metadata_warnings: [
       ...(!geometry ? ["No displayable catalog footprint."] : []),
-      ...(!before || !after ? ["Acquisition pair metadata incomplete."] : []),
+      ...(kind === "GUNW" && (!before || !after) ? ["Acquisition pair metadata incomplete."] : []),
     ],
   };
 }
@@ -326,6 +345,14 @@ export async function discover(
     if (selection.polygon)
       params.set("polygon", JSON.stringify(selection.polygon));
     data = await request<Discovery>(`${api}/api/discovery?${params}`, signal);
+    // The optional backend searches GUNW only and returns products without previews.
+    data.products = data.products.map((p) => ({
+      ...p,
+      kind: p.kind ?? "GUNW",
+      date: p.date ?? p.after?.slice(0, 10) ?? null,
+      browse: p.browse ?? { bands: [] },
+      frequencies: p.frequencies ?? [],
+    }));
   } else {
     // Discovery must remain usable when the optional local research export is unavailable.
     const catalog = await loadCatalog().catch(() => undefined);
@@ -338,26 +365,30 @@ export async function discover(
       // processed products stored with TerraShift that match, clearly labelled.
       return offlineDiscovery(selection, start, end, catalog);
     }
+    // Both product families, every box of a dateline-split area, in parallel.
     async function liveSearch() {
+      const boxes = splitBBox(bbox);
       return Promise.all(
-      splitBBox(bbox).map(async (box) => {
-        const params = new URLSearchParams({
-          short_name: COLLECTION,
-          bounding_box: box.join(","),
-          temporal: `${start}T00:00:00Z,${end}T23:59:59Z`,
-          page_size: "50",
-          "sort_key[]": "-start_date",
-        });
-        if (selection.polygon && splitBBox(bbox).length === 1) {
-          params.delete("bounding_box");
-          params.set("polygon", selection.polygon.flat().join(","));
-        }
-        const result = await request<{
-          items: { meta: { "concept-id": string }; umm: UMM }[];
-          hits: number;
-        }>(`${CMR}?${params}`, signal);
-        return result;
-      }),
+        (Object.keys(COLLECTIONS) as ProductKind[]).flatMap((kind) =>
+          boxes.map(async (box) => {
+            const params = new URLSearchParams({
+              short_name: COLLECTIONS[kind],
+              bounding_box: box.join(","),
+              temporal: `${start}T00:00:00Z,${end}T23:59:59Z`,
+              page_size: String(PAGE_SIZE),
+              "sort_key[]": "-start_date",
+            });
+            if (selection.polygon && boxes.length === 1) {
+              params.delete("bounding_box");
+              params.set("polygon", selection.polygon.flat().join(","));
+            }
+            const result = await request<{
+              items: { meta: { "concept-id": string }; umm: UMM }[];
+              hits: number;
+            }>(`${CMR}?${params}`, signal);
+            return { kind, split: boxes.length > 1, ...result };
+          }),
+        ),
       );
     }
     const products = [
@@ -369,13 +400,23 @@ export async function discover(
             return [p.id, p];
           }),
       ).values(),
-    ].slice(0, 50);
+    ];
+    const hitsByKind = Object.fromEntries(
+      (Object.keys(COLLECTIONS) as ProductKind[]).map((k) => {
+        const r = results.filter((x) => x.kind === k);
+        return [k, r.length === 1 && !r[0].split ? r[0].hits : null];
+      }),
+    ) as Record<ProductKind, number | null>;
     data = {
       products,
       returned: products.length,
-      hits: results.length === 1 ? results[0].hits : null,
+      hits:
+        hitsByKind.GUNW != null && hitsByKind.GCOV != null
+          ? hitsByKind.GUNW + hitsByKind.GCOV
+          : null,
+      hits_by_kind: hitsByKind,
       bounded: results.some(
-        (r) => r.items.length >= 50 || r.hits > r.items.length,
+        (r) => r.items.length >= PAGE_SIZE || r.hits > r.items.length,
       ),
       queried_utc: new Date().toISOString(),
       source: "NASA CMR · direct public metadata",
@@ -410,6 +451,10 @@ export function offlineDiscovery(
         id: pair.granule,
         granule: pair.granule,
         collection: COLLECTION,
+        kind: "GUNW",
+        date: pair.after,
+        browse: { bands: [] },
+        frequencies: [],
         before: pair.before,
         after: pair.after,
         track: pair.track ?? null,
@@ -472,7 +517,7 @@ export function productCollection(
       .map((p) => ({
         type: "Feature",
         id: p.id,
-        properties: { id: p.id, cached: p.cached_pair != null ? 1 : 0 },
+        properties: { id: p.id, cached: p.cached_pair != null ? 1 : 0, kind: p.kind },
         geometry: p.geometry!,
       })),
   };

@@ -33,7 +33,15 @@ export interface Overlay {
   key: string;
   url: string;
   coordinates: Position[];
+  /** Smooth resampling for photographs (NASA previews); measurement grids stay crisp. */
+  smooth?: boolean;
+  /** Draw the image's rectangle as the data edge (off for previews, whose footprint is drawn). */
+  outline?: boolean;
 }
+export type Basemap = "satellite" | "geographic" | "terrain" | "optical";
+/** NASA GIBS daily true-colour mosaic (MODIS Terra), about 250 m detail, public, no key. */
+export const gibsTiles = (date: string) =>
+  `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`;
 interface Props {
   overlay?: Overlay;
   legend?: ReactNode;
@@ -45,7 +53,11 @@ interface Props {
   onMarker?: (marker: MapMarker) => void;
   onSelect?: (selection: Selection) => void;
   onProduct?: (id: string) => void;
-  basemap?: "satellite" | "geographic" | "terrain";
+  basemap?: Basemap;
+  /** Day shown by the "optical" basemap (YYYY-MM-DD). */
+  opticalDate?: string;
+  /** Catalog product to highlight among the search footprints. */
+  activeProduct?: string;
   opacity?: number;
   className?: string;
   compact?: boolean;
@@ -282,7 +294,9 @@ export default function MapViewer(props: Props) {
           id: "coverage-fill",
           type: "fill",
           source: "coverage",
-          paint: { "fill-color": "#55d9f3", "fill-opacity": 0.06 },
+          // Footprints are outlines only, so the basemap and previews stay visible;
+          // the near-invisible fill keeps the whole footprint clickable.
+          paint: { "fill-color": "#55d9f3", "fill-opacity": 0.01 },
         });
         m.addLayer({
           id: "coverage-line",
@@ -298,6 +312,13 @@ export default function MapViewer(props: Props) {
             "line-width": 1,
             "line-opacity": 0.65,
           },
+        });
+        m.addLayer({
+          id: "coverage-active",
+          type: "line",
+          source: "coverage",
+          filter: ["==", ["get", "id"], ""],
+          paint: { "line-color": "#ffffff", "line-width": 2.2, "line-opacity": 0.95 },
         });
         m.addSource("aoi", {
           type: "geojson",
@@ -403,7 +424,7 @@ export default function MapViewer(props: Props) {
         p.onPoint?.(...point);
       });
       let failures = 0;
-      const basemaps = new Set(["satellite", "terrain", "geographic"]);
+      const basemaps = new Set(["satellite", "terrain", "geographic", "optical"]);
       m.on("error", (e) => {
         // Basemap tiles failing is not fatal: the offline outlines show instead.
         const sourceId = (e as { sourceId?: string }).sourceId;
@@ -560,13 +581,37 @@ export default function MapViewer(props: Props) {
     const m = map.current;
     if (!m || !ready) return;
     const basemap = props.basemap ?? "satellite";
+    // The optical layer is rebuilt for each date (GIBS tiles are addressed by day).
+    const date = props.opticalDate ?? new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    if (m.getLayer("optical")) m.removeLayer("optical");
+    if (m.getSource("optical")) m.removeSource("optical");
+    if (basemap === "optical") {
+      m.addSource("optical", {
+        type: "raster",
+        tiles: [gibsTiles(date)],
+        tileSize: 256,
+        maxzoom: 9,
+        attribution: `Optical ${date}: NASA GIBS / MODIS Terra`,
+      });
+      m.addLayer(
+        { id: "optical", type: "raster", source: "optical", paint: { "raster-brightness-max": 0.85 } },
+        "geographic",
+      );
+    }
     for (const id of ["satellite", "terrain", "geographic"])
       m.setLayoutProperty(
         id,
         "visibility",
         id === basemap ? "visible" : "none",
       );
-  }, [props.basemap, ready]);
+  }, [props.basemap, props.opticalDate, ready]);
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    m.setFilter("coverage-active", ["==", ["get", "id"], props.activeProduct ?? ""]);
+    // With one product open, the other footprints step back.
+    m.setPaintProperty("coverage-line", "line-opacity", props.activeProduct ? 0.22 : 0.65);
+  }, [props.activeProduct, ready]);
   useEffect(() => {
     const m = map.current;
     if (!m || !ready) return;
@@ -597,7 +642,11 @@ export default function MapViewer(props: Props) {
         "aoi-line",
       );
     }
-    m.setLayoutProperty("measurement-edge", "visibility", "visible");
+    m.setLayoutProperty(
+      "measurement-edge",
+      "visibility",
+      overlay.outline === false ? "none" : "visible",
+    );
     if (m.getSource("measurement")) {
       (m.getSource("measurement") as ImageSource).updateImage({
         url: overlay.url,
@@ -621,10 +670,12 @@ export default function MapViewer(props: Props) {
             "raster-fade-duration": reduced ? 0 : 300,
           },
         },
-        "aoi-line",
+        // Beneath footprints, the selected-product outline and the area of interest.
+        "coverage-fill",
       );
     }
     m.setPaintProperty("measurement", "raster-opacity", props.opacity ?? 0.85);
+    m.setPaintProperty("measurement", "raster-resampling", overlay.smooth ? "linear" : "nearest");
   }, [props.overlay?.key, props.overlay?.url, props.opacity, ready]);
   const markerKey = (props.markers ?? []).map((k) => k.id).join("|");
   useEffect(() => {

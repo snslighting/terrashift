@@ -1,4 +1,5 @@
-import type { BBox, Comparison, LayerKind, Pair, StudyCase } from "./types";
+import type { BBox, Comparison, LayerKind, Pair, Product, StudyCase } from "./types";
+import { ringBounds } from "./browse";
 
 export type ValidationState = "passed" | "failed" | "not_assessed";
 
@@ -90,11 +91,55 @@ export function comparePairs(
   return { first: null, last: null, reason };
 }
 
-/** Longitude/latitude box around the corner coordinates of a pair's display grid. */
+/**
+ * Longitude/latitude box around the corner coordinates of a pair's display grid.
+ * Areas that cross the 180° line keep west > east, the convention used by
+ * fitBounds and the selection tools.
+ */
 export function dataBounds(pair: Pair): BBox {
-  const lons = pair.coordinates.map((c) => c[0]),
-    lats = pair.coordinates.map((c) => c[1]);
-  return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+  const [w, s, e, n] = ringBounds(pair.coordinates);
+  return [w > 180 ? w - 360 : w, s, e > 180 ? e - 360 : e, n];
+}
+
+/**
+ * How far independent checks got, in three levels plus "not checked":
+ * validated (GNSS check passed), partly checked (GNSS confirms the scale but is
+ * not co-located), failed (GNSS check failed).
+ */
+export type Trust = "validated" | "partly_checked" | "failed" | "not_checked";
+export function trustOf(pair: Pair | undefined): Trust {
+  const v = validationLabel(pair?.comparison);
+  if (v.state === "passed") return "validated";
+  if (v.state === "failed") return "failed";
+  return pair?.gnss ? "partly_checked" : "not_checked";
+}
+export const trustLabels: Record<Trust, string> = {
+  validated: "Validated against GNSS",
+  partly_checked: "Partly checked: GNSS confirms the scale",
+  failed: "GNSS check failed",
+  not_checked: "No independent check",
+};
+
+/** The four rungs of TerraShift's honest status ladder. */
+export const ladder = [
+  { level: 1, short: "Catalog record", text: "NASA lists this product: date, track and footprint." },
+  { level: 2, short: "NASA preview", text: "NASA's own preview image, not processed by TerraShift." },
+  { level: 3, short: "Processed by TerraShift", text: "Measured maps made by TerraShift from the science file." },
+  { level: 4, short: "Checked against GNSS", text: "Compared with independent ground stations." },
+] as const;
+
+export function statusLevel(product: Product | undefined, pair?: Pair): 1 | 2 | 3 | 4 {
+  if (pair) return pair.comparison || pair.gnss ? 4 : 3;
+  if (product?.browse.combined || product?.browse.bands.length) return 2;
+  return 1;
+}
+
+/**
+ * Products that can be swiped against each other: same family, track, frame and
+ * orbit direction, so both images show the same ground from the same angle.
+ */
+export function sameGeometry(a: Product, b: Product) {
+  return a.kind === b.kind && a.track === b.track && a.frame === b.frame && a.orbit === b.orbit;
 }
 
 /** "06-29 → 07-11", with the year added when the pairs of a study span more than one year. */

@@ -27,11 +27,11 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 
 | The challenge asks for | TerraShift today |
 |---|---|
-| Use real NISAR data | Real NISAR L2 GUNW products, checksum-verified, with live NASA CMR discovery of new products |
-| Changes at locations around the world | Farming (California), earthquakes (Venezuela, Indonesia), subsidence (California). Floods, wetlands and wildfire: GCOV pipeline built, no processed case yet |
-| Time series from different dates | Four 12-day pairs across three areas; play-through timeline and swipe; GNSS time series at stations |
-| Which polarizations highlight which change | Open: needs a processed GCOV case (HH vs HV) |
-| Optical imagery or GIS context | Satellite and terrain basemaps, country outlines, GNSS stations and USGS epicentres |
+| Use real NISAR data | Real NISAR L2 GUNW products, checksum-verified, with live NASA CMR discovery of GUNW and GCOV products; NASA's own preview image of every product found is placed on the map |
+| Changes at locations around the world | Processed: farming (California), earthquakes (Venezuela, Indonesia), subsidence (California). NASA previews anywhere NISAR has looked, with 23 one-click sample places (wetlands, fire, farming, volcanoes, ice, sinking cities). Floods, wetlands and wildfire are not yet processed by TerraShift |
+| Time series from different dates | Four processed 12-day pairs across three areas; for any place, a date slider with play, a same-track swipe compare and an acquisition calendar over every product found; GNSS time series at stations |
+| Which polarizations highlight which change | HH and HV previews (both L-band frequencies, A and B) switchable for every GCOV product, with a short reading guide. Measured HH/HV change still needs a processed GCOV case |
+| Optical imagery or GIS context | "Optical on this date" basemap (NASA GIBS MODIS true colour for the product's date), satellite and terrain basemaps, country outlines, GNSS stations and USGS epicentres |
 | Hypothesize the physical drivers | "Likely drivers" per Earth Story, stated as hypotheses with the evidence for and against |
 | Future applications of NISAR | "What NISAR could do next" section on the Earth Stories page |
 | Compelling storytelling, interactive summary | Earth Stories (where, what the radar saw, likely drivers, how sure we are, why it matters) and shareable Analysis links |
@@ -40,7 +40,9 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 ## Features
 
 - Seven pages: interactive 3D Earth, worldwide explorer, analysis workspace, Earth Stories, science explainer, data & methodology, about.
-- Worldwide place search (Photon/OpenStreetMap) or coordinates, rectangle/polygon areas, dateline handling, live NASA CMR discovery with real footprints.
+- Worldwide place search (Photon/OpenStreetMap) or coordinates, rectangle/polygon areas, dateline handling, live NASA CMR discovery of GUNW and GCOV products with real footprints.
+- Every product found opens: NASA's preview image is placed on the map (thumbnail first), with HH / HV / frequency switches for GCOV, a place report card, an acquisition calendar, a date slider with play and a same-track, same-frame swipe compare. A four-level status ladder (catalog record, NASA preview, processed by TerraShift, checked against GNSS) says what each picture is.
+- Discovery views are shareable (area, data type, product and image in the URL), with a product-list CSV and a labelled preview PNG.
 - Study-area maps with layer switching, point inspection (value plus the number of source pixels), GNSS and earthquake markers, timelines, swipe and side-by-side comparison, residual and error-structure charts.
 - JSON and CSV evidence exports with source hashes; full provenance per product.
 - Earth Stories in five steps (where and why, what the radar saw, likely drivers as hypotheses, how sure we are, why it matters), with the map following each step, plus future NISAR applications.
