@@ -17,7 +17,8 @@ import {
   Link,
 } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowUpRight, Menu, X } from "lucide-react";
+import { ArrowUpRight, CircleHelp, Menu, X } from "lucide-react";
+import { TourProvider, useTour } from "./components/Tour";
 import { AppContext } from "./lib/context";
 import { loadCatalog } from "./lib/api";
 import type { Catalog, Selection } from "./lib/types";
@@ -65,6 +66,20 @@ class ErrorBoundary extends Component<
     );
   }
 }
+function TourButton() {
+  const { start, active } = useTour();
+  return (
+    <button
+      className="tour-launch"
+      onClick={() => start(false)}
+      aria-pressed={active}
+      aria-label="Take the guided tour"
+    >
+      <CircleHelp size={16} />
+      <span>Tour</span>
+    </button>
+  );
+}
 const links = [
   ["/explore", "Explorer"],
   ["/analysis", "Analysis"],
@@ -107,6 +122,7 @@ function App() {
             </NavLink>
           ))}
         </nav>
+        <TourButton />
         <a
           className="header-repo"
           href="https://github.com/snslighting/terrashift"
@@ -179,11 +195,15 @@ createRoot(document.getElementById("root")!).render(
         (no per-route folders); GitHub Pages uses normal paths. */}
     {import.meta.env.VITE_HASH_ROUTER ? (
       <HashRouter>
-        <App />
+        <TourProvider>
+          <App />
+        </TourProvider>
       </HashRouter>
     ) : (
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <App />
+        <TourProvider>
+          <App />
+        </TourProvider>
       </BrowserRouter>
     )}
   </React.StrictMode>,

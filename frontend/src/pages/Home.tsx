@@ -14,7 +14,9 @@ import {
   Globe2,
   Check,
   Radio,
+  PlayCircle,
 } from "lucide-react";
+import { useTour } from "../components/Tour";
 import { Button, Eyebrow, Reveal, SourceLink, StatusBadge } from "../components/UI";
 import { useApp, useGrids } from "../lib/context";
 import { Raster } from "../components/Raster";
@@ -60,6 +62,7 @@ function CaseCard({ study, index }: { study: StudyCase; index: number }) {
 const Globe = lazy(() => import("../components/Globe"));
 export default function Home() {
   const navigate = useNavigate(),
+    tour = useTour(),
     { catalog } = useApp(),
     cases = catalog?.cases ?? [],
     hero = useRef<HTMLDivElement>(null),
@@ -137,6 +140,10 @@ export default function Home() {
             <Button to="/explore" secondary>
               Explore anywhere
             </Button>
+            <button className="text-button hero-demo" onClick={() => tour.start(true)}>
+              <PlayCircle size={17} />
+              Watch the 90-second demo
+            </button>
             <div className="hero-proof">
               <span className="live-dot" />
               REAL NISAR DATA · {cases.length || "—"} STUDY AREAS ·{" "}

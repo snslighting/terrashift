@@ -168,6 +168,18 @@ try {
     assert.equal(url.searchParams.get("mode"), "side");
   });
 
+  await check("guided tour walks across pages and closes", async () => {
+    await page.goto(origin + base);
+    await page.getByRole("button", { name: "Take the guided tour" }).click();
+    await page.locator("#tour-title", { hasText: "Welcome" }).waitFor();
+    for (let i = 0; i < 3; i++) await page.locator(".tour-actions .button").click();
+    await page.locator("#tour-title", { hasText: "Earth Stories" }).waitFor();
+    assert.match(page.url(), /discoveries/);
+    await page.locator(".tour-spotlight").waitFor();
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator(".tour-card").count(), 0);
+  });
+
   await check("science, data and about pages render", async () => {
     for (const route of ["science/", "data/", "about/"]) {
       await page.goto(origin + base + route);
