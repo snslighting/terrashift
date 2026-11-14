@@ -549,7 +549,11 @@ try {
     assert.deepEqual(small, [], `targets under 24 px: ${small.join(", ")}`);
     await p.getByRole("button", { name: "Show the map" }).click();
     // Smooth scrolling takes a moment: wait for the map to arrive near the top.
-    await p.waitForFunction(() => document.querySelector(".map-canvas").getBoundingClientRect().top < 400, null, { timeout: 5000 });
+    // The map loads in its own chunk: wait for it to exist, then for it to arrive near the top.
+    await p.waitForFunction(() => {
+      const map = document.querySelector(".map-canvas");
+      return !!map && map.getBoundingClientRect().top < 400;
+    }, null, { timeout: 10000 });
     await p.screenshot({ path: join(out, "phone-explorer-preview.png") });
     await phone.close();
   });
