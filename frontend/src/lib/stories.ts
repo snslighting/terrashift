@@ -23,6 +23,35 @@ export interface StoryNarrative {
 }
 
 export const narratives: Record<string, StoryNarrative> = {
+  "pantanal-wetland": {
+    takeaway:
+      "Between 5 July and 21 October 2026 the Pantanal scene got brighter in radar almost everywhere (a median of about 4 dB in both HH and HV). A change this large and this even is a candidate for a seasonal shift or a processing effect; it is not confirmed as flooding.",
+    why: "The Pantanal in Brazil is one of the largest tropical wetlands on Earth. Its water level rises and falls with the seasons, so the same place can look very different to radar in the dry season and in the rains. This pair compares NISAR L-band backscatter on 5 July and 21 October 2026, along the same track and frame.",
+    drivers: [
+      {
+        cause: "Seasonal wetting and vegetation regrowth between the dry season and the start of the rains",
+        evidence:
+          "Brightening covers most of the scene and appears in both HH and HV, the pattern a regional shift in soil moisture and plant growth would give. The Pantanal's rains usually begin in the last months of the year.",
+      },
+      {
+        cause: "Standing water among vegetation",
+        evidence:
+          "Calm open water turns dark in radar, but water beneath plants can make it brighter. Only about 5% of pixels darkened by 3 dB or more, so open flooding is not the main signal here.",
+      },
+    ],
+    alternatives:
+      "A change this large and this even across a scene can also come from how the two products were made (calibration, terrain correction or product version) rather than from the ground. TerraShift has not ruled that out and has not applied the products' own quality mask. Read it as a candidate, not as a flood map.",
+    people: [
+      {
+        who: "Wetland ecologists and managers",
+        use: "Follow flooding and plant growth across wet and dry seasons through cloud.",
+      },
+      {
+        who: "Water and fire agencies",
+        use: "Use pixel-by-pixel backscatter change as a candidate map once a pair has been checked against a trusted reference.",
+      },
+    ],
+  },
   "san-joaquin": {
     takeaway:
       "A quarter of the mapped farmland lost more than half its radar coherence in 12 days, the pattern expected from actively worked fields.",

@@ -94,13 +94,13 @@ export default function About() {
           <div>
             <h3>More pairs, floods, wetlands and wildfires</h3>
             <p>
-              <code>scripts/acquire.py</code> downloads and processes the next
-              California pairs (a three-month subsidence timeline), a Flores
-              sensitivity run, a Pantanal wetland case in HH and HV, and a
-              quiet-period control pair next to each earthquake. The cases are
-              chosen and checked against NASA's catalog; processing needs an
-              Earthdata login. The site picks up each new study area
-              automatically once processed.
+              <code>scripts/acquire.py</code> downloads and processes more pairs. A
+              Pantanal wetland pair in HH and HV (5 July and 21 October 2026)
+              and a quiet-period control pair next to each earthquake are now
+              processed and provisional. The next California pairs (a
+              three-month subsidence timeline) and a Flores sensitivity run
+              are not. Processing needs an Earthdata login, and the site picks
+              up each new study area automatically.
             </p>
           </div>
         </div>
