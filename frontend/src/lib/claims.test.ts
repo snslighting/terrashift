@@ -1,9 +1,9 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import shipped from "../../public/evidence/catalog.json";
 import { claims } from "./claims";
 import type { Catalog } from "./types";
 
-const catalog = JSON.parse(readFileSync(new URL("../../public/evidence/catalog.json", import.meta.url), "utf8")) as Catalog;
+const catalog = shipped as unknown as Catalog;
 
 describe("what we can and cannot claim (item 13)", () => {
   const { can, cannot } = claims(catalog);
