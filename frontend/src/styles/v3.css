@@ -541,11 +541,12 @@
     max-height: 64px;
     overflow: hidden;
   }
+  /* Below the right-hand tool column (zoom, compass, fit, names, draw: ends near 240 px). */
   .map-legend {
     left: auto;
     right: 12px;
     bottom: auto;
-    top: 215px;
+    top: 250px;
     width: min(215px, calc(100% - 24px));
   }
   .map-legend.closed {
@@ -557,7 +558,7 @@
   }
   /* The analysis map pins its legend to the bottom; on phones that stretched it top-to-bottom. */
   .analysis-map .map-legend {
-    top: 150px;
+    top: 256px;
     bottom: auto;
   }
   .analysis-inspector {

@@ -113,7 +113,7 @@ Native phase uses `LOS_mm = −φ·λ/(4π)·1000`, toward the satellite positiv
 | Temurbek Tolibov | UX/UI Designer |
 | Amiriddin Ramazonov | Spokesman |
 
-TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
+TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Natural Earth, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
 
 ## License
 
@@ -125,4 +125,4 @@ All documentation is indexed in [docs/README.md](docs/README.md).
 
 [NASA NISAR](https://nisar.jpl.nasa.gov/) · [ASF GUNW](https://nisar-docs.asf.alaska.edu/gunw/) · [NASA CMR](https://cmr.earthdata.nasa.gov/search/) · [NGL GNSS](https://geodesy.unr.edu/) · [USGS earthquakes](https://earthquake.usgs.gov/) · [Photon](https://github.com/komoot/photon) · [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/)
 
-Basemaps: Esri imagery and topography, CARTO dark basemap with OpenStreetMap data, and built-in NASA Blue Marble and Earth at Night imagery (used on the globe and whenever tile servers are unreachable; see `frontend/public/licenses/imagery.txt`). They are context, not NISAR measurements. Library licences are in `frontend/public/licenses`. This is an independent challenge project, not an official NASA or ISRO product.
+Basemaps: Esri imagery and topography, CARTO dark basemap with OpenStreetMap data, and built-in NASA Blue Marble and Earth at Night imagery (used on the globe and whenever tile servers are unreachable; see `frontend/public/licenses/imagery.txt`). Country borders and place names (countries, cities, seas, lakes, rivers) are drawn by the map from Natural Earth (public domain; `scripts/map_labels.py`) in DM Sans (SIL OFL; `frontend/scripts/make-glyphs.mjs`), so they show on every basemap and offline; the tag button on the map hides the names. They are context, not NISAR measurements. Library licences are in `frontend/public/licenses`. This is an independent challenge project, not an official NASA or ISRO product.
