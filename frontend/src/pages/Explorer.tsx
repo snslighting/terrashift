@@ -98,6 +98,18 @@ const datePresets: [string, number][] = [
   ["12 months", 365],
   ["Since launch", -1],
 ];
+/** What the optical basemap is, in plain words, so it is not mistaken for the radar's view. */
+function OpticalNote({ date }: { date?: string }) {
+  return (
+    <details className="tiny optical-note">
+      <summary>Optical: NASA MODIS Terra{date ? `, ${date} (UTC)` : ""}</summary>
+      True colour, about 250 m detail. Terra passes around 10:30 local time, so it can be hours from the radar
+      pass; clouds hide the ground, and recent days may not be processed yet. Context only, not a check of the
+      radar.
+    </details>
+  );
+}
+
 export default function Explorer() {
   const { catalog, selection, setSelection, error: researchError } = useApp();
   const [params, setParams] = useSearchParams(),
@@ -181,6 +193,8 @@ export default function Explorer() {
   const shown =
     preview.status === "ready" ? preview.image : preview.status === "loading" ? preview.thumb : undefined;
   const level = statusLevel(product, pair);
+  // Day of the optical basemap: the radar date (a GUNW's second date), else yesterday.
+  const opticalDate = (product?.date ?? pair?.after)?.slice(0, 10);
   // Which image is on the map, in words: "Backscatter · HV", "Ground motion · Interferogram".
   const previewLabel = product
     ? `${kindLabels[product.kind].short} · ${(previewChoices(product).find((o) => o.id === choice) ?? previewChoices(product)[0])?.label ?? ""}`
@@ -854,9 +868,7 @@ export default function Explorer() {
             <option value="satellite">Satellite</option>
             <option value="geographic">Geographic</option>
             <option value="terrain">Terrain</option>
-            <option value="optical">
-              Optical on {(product?.date ?? pair?.after ?? "latest day").slice(0, 10)}
-            </option>
+            <option value="optical">Optical on {opticalDate ?? "the latest day"}</option>
           </select>
           {preview.status === "ready" && !pair && (
             <button onClick={exportPreview} aria-label="Save this map image">
@@ -885,7 +897,7 @@ export default function Explorer() {
             selection={selection}
             products={pair ? result?.products : listed}
             basemap={basemap}
-            opticalDate={(product?.date ?? pair?.after)?.slice(0, 10)}
+            opticalDate={opticalDate}
             activeProduct={product?.id}
             opacity={opacity}
             onSelect={choose}
@@ -940,6 +952,7 @@ export default function Explorer() {
               />
             </label>
             <p className="tiny">Lower it to see the basemap, or the optical view of the same day, underneath.</p>
+            {basemap === "optical" && <OpticalNote date={opticalDate} />}
           </div>
         )}
         {!pair && result && series.length > 1 && (
@@ -995,6 +1008,7 @@ export default function Explorer() {
                 GNSS stations
               </label>
             )}
+            {basemap === "optical" && <OpticalNote date={opticalDate} />}
           </div>
         )}
         {(pair || product) && (

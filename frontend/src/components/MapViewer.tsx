@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { asset, bboxFeature, productCollection } from "../lib/api";
 import { normalizeLongitude } from "../lib/science";
+import { gibsTiles, opticalAvailable } from "../lib/optical";
+export { gibsTiles } from "../lib/optical";
 import type {
   BBox,
   MapMarker,
@@ -42,9 +44,6 @@ export interface Overlay {
   outline?: boolean;
 }
 export type Basemap = "satellite" | "geographic" | "terrain" | "optical";
-/** NASA GIBS daily true-colour mosaic (MODIS Terra), about 250 m detail, public, no key. */
-export const gibsTiles = (date: string) =>
-  `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`;
 interface Props {
   overlay?: Overlay;
   legend?: ReactNode;
@@ -87,6 +86,8 @@ export default function MapViewer(props: Props) {
   const [ready, setReady] = useState(false),
     [error, setError] = useState(""),
     [offlineBasemap, setOfflineBasemap] = useState(false),
+    // The optical layer is addressed by day: a missing day is not an offline basemap.
+    [opticalMissing, setOpticalMissing] = useState(false),
     offlineRef = useRef(false),
     [mode, setMode] = useState<"rectangle" | "polygon" | null>(null),
     [points, setPoints] = useState<Position[]>([]),
@@ -431,6 +432,10 @@ export default function MapViewer(props: Props) {
       m.on("error", (e) => {
         // Basemap tiles failing is not fatal: the offline outlines show instead.
         const sourceId = (e as { sourceId?: string }).sourceId;
+        if (sourceId === "optical") {
+          setOpticalMissing(true);
+          return;
+        }
         if (sourceId && basemaps.has(sourceId)) {
           setOfflineBasemap(true);
           return;
@@ -586,6 +591,7 @@ export default function MapViewer(props: Props) {
     const basemap = props.basemap ?? "satellite";
     // The optical layer is rebuilt for each date (GIBS tiles are addressed by day).
     const date = props.opticalDate ?? new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    setOpticalMissing(false);
     if (m.getLayer("optical")) m.removeLayer("optical");
     if (m.getSource("optical")) m.removeSource("optical");
     if (basemap === "optical") {
@@ -601,12 +607,22 @@ export default function MapViewer(props: Props) {
         "geographic",
       );
     }
+    let probe: AbortController | undefined;
+    if (basemap === "optical") {
+      probe = new AbortController();
+      const c = m.getCenter(),
+        signal = probe.signal;
+      opticalAvailable(date, c.lng, c.lat, signal)
+        .then((ok) => !signal.aborted && !ok && setOpticalMissing(true))
+        .catch(() => !signal.aborted && setOpticalMissing(true));
+    }
     for (const id of ["satellite", "terrain", "geographic"])
       m.setLayoutProperty(
         id,
         "visibility",
         id === basemap ? "visible" : "none",
       );
+    return () => probe?.abort();
   }, [props.basemap, props.opticalDate, ready]);
   useEffect(() => {
     const m = map.current;
@@ -738,7 +754,16 @@ export default function MapViewer(props: Props) {
           {error}
         </div>
       )}
-      {offlineBasemap && !error && (
+      {opticalMissing && props.basemap === "optical" && !error && (
+        <div className="map-offline" role="status">
+          No NASA optical image of {props.opticalDate ?? "this day"} here
+          <span className="long">
+            {" "}· it may not be processed yet. The built-in Blue Marble shows underneath.
+          </span>
+        </div>
+      )}
+      {/* The Esri/CARTO basemaps being offline is irrelevant while the GIBS optical layer is shown. */}
+      {offlineBasemap && !error && props.basemap !== "optical" && (
         <div className="map-offline" role="status">
           Live basemap offline<span className="long">
             {" "}· showing NASA Blue Marble (about 10 km detail). NISAR evidence is unaffected.

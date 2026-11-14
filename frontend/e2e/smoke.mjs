@@ -334,6 +334,35 @@ try {
     await page.screenshot({ path: join(out, "explorer-preview.png") });
   });
 
+  await check("optical basemap loads NASA GIBS imagery for the product's own date", async () => {
+    const days = new Set();
+    const watch = (r) => {
+      const m = r.url().match(/gibs\.earthdata\.nasa\.gov\/wmts\/.*\/default\/(\d{4}-\d{2}-\d{2})\//);
+      if (m) days.add(m[1]);
+    };
+    page.on("request", watch);
+    // GIBS answers 404 for a day it has no image of (checked against the real service).
+    await page.route(/gibs\.earthdata\.nasa\.gov/, (route) => route.fulfill({ status: 404, body: "" }));
+    await page.goto(origin + base + "explore/?preset=pantanal&type=GCOV");
+    await page.locator(".map-ribbon.preview").waitFor({ timeout: 15000 });
+    await page.locator("select[aria-label=Basemap]").selectOption("optical");
+    assert.match(await page.locator("select[aria-label=Basemap] option:checked").innerText(), /Optical on 2026-10-21/);
+    await page.waitForTimeout(1500);
+    assert.ok(days.has("2026-10-21"), `GIBS days requested: ${[...days].join(", ")}`);
+    await page.locator(".optical-note summary", { hasText: "MODIS Terra, 2026-10-21 (UTC)" }).waitFor();
+    // No image for that day: the map says so, instead of "basemap offline".
+    await page.locator(".map-offline", { hasText: "No NASA optical image of 2026-10-21" }).waitFor();
+    // Moving the date slider moves the optical day with it.
+    const slider = page.locator(".time-scrubber input[type=range]");
+    await slider.focus();
+    await page.keyboard.press("Home");
+    await page.locator(".map-result-panel h2", { hasText: "27 September 2026" }).waitFor();
+    await page.waitForTimeout(1500);
+    assert.ok(days.has("2026-09-27"), `GIBS days requested: ${[...days].join(", ")}`);
+    page.off("request", watch);
+    await page.unroute(/gibs\.earthdata\.nasa\.gov/);
+  });
+
   await check("switching data type drops the old image at once and names the one loading", async () => {
     await page.goto(origin + base + "explore/?preset=pantanal&type=GUNW");
     await page.locator(".map-ribbon.preview", { hasText: "GROUND MOTION" }).waitFor({ timeout: 15000 });

@@ -2442,3 +2442,17 @@
   padding: 0 5vw 24px;
   text-align: center;
 }
+.optical-note {
+  margin-top: 6px;
+  color: #a5bacb;
+}
+.optical-note summary {
+  cursor: pointer;
+  color: #c9d8e6;
+}
+/* The ground-motion legend now carries a "no change / no data" key: keep the layer panel clear of it. */
+@media (min-width: 700px) {
+  .explorer-map-area .layer-panel:not(.preview-layer-panel) {
+    bottom: 246px;
+  }
+}
