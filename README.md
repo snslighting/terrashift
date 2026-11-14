@@ -116,6 +116,8 @@ Native phase uses `LOS_mm = −φ·λ/(4π)·1000`, toward the satellite positiv
 
 TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Natural Earth, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
 
+**AI assistance.** The code, tests and documentation of TerraShift were written with the help of an AI assistant (Claude, by Anthropic) at the team's direction; commits made with it carry a `Co-Authored-By: Claude` line. Radar maps and previews come from NASA data and imagery, not from AI image generation. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
+
 ## License
 
 Code is released under the [MIT License](LICENSE). To cite TerraShift, see [CITATION.cff](CITATION.cff). NISAR data are provided by NASA and ISRO through the ASF DAAC; third-party library licences are in `frontend/public/licenses`. Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md); to ask for a new place, open a *Request an area* issue.

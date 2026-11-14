@@ -18,6 +18,14 @@ export const team: Member[] = [
   { name: "Amiriddin Ramazonov", role: "Spokesman", photo: "team/amiriddin-ramazonov.webp" },
 ];
 
+/**
+ * NASA Space Apps asks teams to acknowledge where AI tools were used. Code, tests and
+ * documentation were written with the help of an AI assistant at the team's direction.
+ * Radar maps and previews on the site come from NASA data and imagery.
+ */
+export const AI_ASSISTANCE =
+  "AI assistance: the code, tests and documentation of TerraShift were written with the help of an AI assistant (Claude, by Anthropic) at the team’s direction. Radar maps and previews come from NASA data and imagery, not from AI image generation.";
+
 export const INDEPENDENCE =
   "TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied.";
 
