@@ -127,13 +127,14 @@ export default function MapViewer(props: Props) {
           sources: {
             geographic: {
               type: "raster",
-              tiles: ["a", "b", "c", "d"].map(
-                (k) =>
-                  `https://${k}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png`,
-              ),
+              // Esri Dark Gray Canvas (no labels; ours come from lib/mapLabels.ts).
+              // Keyless, unlike CARTO, which now watermarks tiles "API key required".
+              tiles: [
+                "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+              ],
               tileSize: 256,
-              attribution:
-                '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+              maxzoom: 16,
+              attribution: "Basemap © Esri, HERE, Garmin, © OpenStreetMap contributors",
             },
             satellite: {
               type: "raster",
@@ -732,7 +733,7 @@ export default function MapViewer(props: Props) {
           </span>
         </div>
       )}
-      {/* The Esri/CARTO basemaps being offline is irrelevant while the GIBS optical layer is shown. */}
+      {/* The Esri basemaps being offline is irrelevant while the GIBS optical layer is shown. */}
       {offlineBasemap && !error && props.basemap !== "optical" && (
         <div className="map-offline" role="status">
           Live basemap offline<span className="long">

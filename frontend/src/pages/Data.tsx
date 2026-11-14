@@ -384,7 +384,7 @@ export default function Data() {
           Lucide · FastAPI · NumPy · SciPy · Rasterio · H5py · PyProj ·
           Earthaccess. Natural Earth provides public-domain globe geography.
           Basemap imagery and terrain: Esri and credited contributors. Globe and built-in offline imagery: NASA Blue Marble and Earth at Night (NASA Earth Observatory).
-          Dark geographic basemap: CARTO, with OpenStreetMap contributors data;
+          Dark geographic basemap: Esri Dark Gray Canvas, with OpenStreetMap contributors data;
           Photon provides the public geocoder. Earthquake context: USGS. Fonts: Google Fonts (Space
           Grotesk and DM Sans).
         </p>
