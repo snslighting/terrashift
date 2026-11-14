@@ -128,7 +128,7 @@ export function QuickLookGallery() {
               </p>
               <code className="granule-id">{open.granule}</code>
               <p>
-                <a className="source-link" href={open.metadata} target="_blank" rel="noreferrer">
+                <a className="source-link" href={open.metadata} target="_blank" rel="noopener noreferrer">
                   NASA catalog record
                   <ArrowUpRight size={13} />
                 </a>

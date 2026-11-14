@@ -316,6 +316,10 @@ export function normalizeProduct(
     polarizations: a.FREQUENCY_A_POLARIZATION ?? [],
     geometry,
     source_url: `https://cmr.earthdata.nasa.gov/search/concepts/${encodeURIComponent(item.meta["concept-id"])}.umm_json`,
+    data_url:
+      (u.RelatedUrls ?? []).find(
+        (r) => r.Type === "GET DATA" && r.URL.startsWith("https://") && r.URL.endsWith(".h5"),
+      )?.URL ?? null,
     download_auth_required: true,
     cached_pair: cache?.pair.id ?? null,
     cached_case: cache?.study.id ?? null,

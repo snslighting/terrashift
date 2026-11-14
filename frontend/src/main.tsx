@@ -32,6 +32,7 @@ const Home = lazy(() => import("./pages/Home")),
   Discoveries = lazy(() => import("./pages/Discoveries")),
   Science = lazy(() => import("./pages/Science")),
   Data = lazy(() => import("./pages/Data")),
+  Learn = lazy(() => import("./pages/Learn")),
   About = lazy(() => import("./pages/About"));
 class ErrorBoundary extends Component<
   { children: ReactNode; resetKey: string },
@@ -87,6 +88,7 @@ const links = [
   ["/discoveries", "Earth Stories"],
   ["/science", "The science"],
   ["/data", "Data"],
+  ["/learn", "Learn"],
   ["/about", "About"],
 ];
 function App() {
@@ -129,7 +131,7 @@ function App() {
           className="header-repo"
           href="https://github.com/snslighting/terrashift"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
         >
           Open source
           <ArrowUpRight size={14} />
@@ -167,6 +169,7 @@ function App() {
                   <Route path="/discoveries" element={<Discoveries />} />
                   <Route path="/science" element={<Science />} />
                   <Route path="/data" element={<Data />} />
+                  <Route path="/learn" element={<Learn />} />
                   <Route path="/about" element={<About />} />
                   <Route
                     path="*"

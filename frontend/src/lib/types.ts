@@ -190,6 +190,8 @@ export interface Product {
   polarizations: string[];
   geometry: GeoJSON.Geometry | null;
   source_url: string;
+  /** The science file (HDF5) as listed in NASA's record; downloading needs an Earthdata login. */
+  data_url?: string | null;
   download_auth_required: boolean;
   cached_pair: string | null;
   cached_case: string | null;

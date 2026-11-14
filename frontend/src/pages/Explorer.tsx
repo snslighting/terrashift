@@ -17,6 +17,8 @@ import { timeline } from "../lib/catalogStats";
 import { footprintBounds, previewChoices } from "../lib/browse";
 import { previewImage, downloadCanvas } from "../lib/mapImage";
 import { PREVIEW_TIMEOUT_MS } from "../lib/previewRequest";
+import { FullDataPanel } from "../components/Resources";
+import { NON_ENDORSEMENT } from "../lib/resources";
 import type { Basemap } from "../components/MapViewer";
 import {
   Search,
@@ -1081,6 +1083,13 @@ export default function Explorer() {
                     >
                       Original product metadata
                     </SourceLink>
+                    <FullDataPanel
+                      product={{
+                        granule: pair.granule,
+                        kind: "GUNW",
+                        data_url: product?.granule === pair.granule ? product.data_url : null,
+                      }}
+                    />
                   </>
                 )}
               </>
@@ -1192,13 +1201,8 @@ export default function Explorer() {
                         <SourceLink href={product.browse.combined}>NASA preview image (full size)</SourceLink>
                       )}
                       <SourceLink href={product.source_url}>View original metadata</SourceLink>
-                      <SourceLink href="https://search.asf.alaska.edu/#/?dataset=NISAR">
-                        Open ASF data search
-                      </SourceLink>
-                      <p className="tiny">
-                        Science-file downloads require an Earthdata sign-in.
-                        Credentials are never entered into TerraShift.
-                      </p>
+                      <FullDataPanel product={product} />
+                      <p className="tiny">{NON_ENDORSEMENT}</p>
                     </>
                   )}
                 </>

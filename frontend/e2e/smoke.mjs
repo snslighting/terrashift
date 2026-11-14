@@ -251,6 +251,26 @@ try {
     assert.equal(url.searchParams.get("mode"), "side");
   });
 
+  await check("learn page: official resources open safely in a new tab, with the NASA note", async () => {
+    await page.goto(origin + base + "learn/");
+    await page.locator(".theme-card").first().waitFor();
+    assert.equal(await page.locator(".theme-card").count(), 7);
+    for (const card of await page.locator(".theme-card").all())
+      assert.equal(await card.locator(".learn-more a").count(), 3);
+    const external = await page.locator("main a[target=_blank]").evaluateAll((as) =>
+      as.map((a) => ({ href: a.href, rel: a.rel })),
+    );
+    assert.ok(external.length >= 7 * 3 + 4);
+    for (const a of external) {
+      assert.match(a.rel, /noopener/, a.href);
+      assert.match(a.rel, /noreferrer/, a.href);
+    }
+    await page.getByRole("heading", { name: "Other SAR sources" }).waitFor();
+    await page.getByText("Not loaded in TerraShift").waitFor();
+    await page.locator(".site-footer .non-endorsement", { hasText: "do not imply endorsement by NASA" }).waitFor();
+    assert.equal(await page.locator("input[type=password]").count(), 0);
+  });
+
   await check("guided tour walks across pages and closes", async () => {
     await page.goto(origin + base);
     await page.getByRole("button", { name: "Take the guided tour" }).click();
@@ -286,6 +306,15 @@ try {
     assert.equal(await page.locator(".status-ladder li.reached").count(), 2);
     assert.match(page.url(), /preset=pantanal/);
     assert.match(page.url(), /type=GCOV/);
+    // Get the full data: steps and links pre-filled with this product, login stays with NASA/ASF.
+    const full = page.locator(".map-result-panel details.full-data");
+    await full.locator("summary").click();
+    await full.getByText("Downloads need your own free NASA Earthdata login").waitFor();
+    const hrefs = await full.locator("a").evaluateAll((as) => as.map((a) => a.href));
+    assert.ok(hrefs.some((h) => h.startsWith("https://search.earthdata.nasa.gov/") && h.includes("TEST_GCOV_2")));
+    assert.ok(hrefs.some((h) => h.startsWith("https://search.asf.alaska.edu/") && h.includes("TEST_GCOV_2")));
+    assert.ok(hrefs.includes("https://nisar-docs.asf.alaska.edu/"));
+    await page.locator(".place-card .learn-more a").first().waitFor();
     // Polarization switch swaps the image.
     await page.locator(".polarization-switch button", { hasText: /^HV$/ }).click();
     await page.waitForFunction(() => /image=A_HV/.test(location.search));
@@ -338,7 +367,7 @@ try {
     await phone.route(/^https:\/\/(?!127\.0\.0\.1)/, (route) => route.fulfill({ status: 204, body: "" }));
     const p = await phone.newPage();
     p.on("pageerror", (e) => errors.push(e.message));
-    for (const route of ["", "explore/?case=san-joaquin", "analysis/", "discoveries/", "data/"]) {
+    for (const route of ["", "explore/?case=san-joaquin", "analysis/", "discoveries/", "data/", "learn/"]) {
       await p.goto(origin + base + route);
       await p.locator("main").first().waitFor();
       await p.waitForTimeout(400);

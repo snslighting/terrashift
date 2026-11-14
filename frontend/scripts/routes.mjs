@@ -6,6 +6,7 @@ for (const route of [
   "discoveries",
   "science",
   "data",
+  "learn",
   "about",
 ]) {
   await mkdir(`../website-v2/${route}`, { recursive: true });

@@ -8,6 +8,7 @@ import { geometries, placeStats, timeline } from "../lib/catalogStats";
 import { ladder, sameGeometry, trustLabels, type Trust } from "../lib/evidence";
 import { presets, themeGuide, COUNTS_DATE, type Preset } from "../lib/presets";
 import { longDate } from "../lib/science";
+import { LearnMore } from "./Resources";
 import type { Product, ProductKind } from "../lib/types";
 
 export const kindLabels: Record<ProductKind, { short: string; long: string }> = {
@@ -496,6 +497,7 @@ export function PlaceCard({ products, preset, hits }: { products: Product[]; pre
           <b>{guide.label}:</b> {guide.look}
         </p>
       )}
+      {guide && <LearnMore compact />}
     </section>
   );
 }

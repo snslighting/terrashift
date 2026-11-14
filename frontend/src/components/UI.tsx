@@ -1,3 +1,4 @@
+import { NON_ENDORSEMENT } from "../lib/resources";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -93,7 +94,7 @@ export function SourceLink({
   children: ReactNode;
 }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="source-link">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="source-link">
       {children}
       <ExternalLink size={12} />
     </a>
@@ -171,10 +172,12 @@ export function Footer() {
           <SourceLink href="https://github.com/snslighting/terrashift">
             Open source
           </SourceLink>
+          <Link to="/learn">Learn</Link>
           <Link to="/about">About</Link>
         </div>
         <span>INDEPENDENT PROJECT · RESEARCH PREVIEW</span>
       </div>
+      <p className="non-endorsement">{NON_ENDORSEMENT}</p>
     </footer>
   );
 }
