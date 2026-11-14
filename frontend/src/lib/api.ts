@@ -1,3 +1,4 @@
+import { fetchJsonIdle, searchFamilies, type Settled } from "./catalogSearch";
 import type {
   BBox,
   Catalog,
@@ -336,6 +337,8 @@ export async function discover(
   start: string,
   end: string,
   signal?: AbortSignal,
+  /** Called with the first family's results while the other is still loading. */
+  onPartial?: (partial: Discovery) => void,
 ): Promise<Discovery> {
   if (!start || !end || start > end)
     throw Error("Select a chronological date range.");
@@ -366,76 +369,104 @@ export async function discover(
   } else {
     // Discovery must remain usable when the optional local research export is unavailable.
     const catalog = await loadCatalog().catch(() => undefined);
-    let results;
-    try {
-      results = await liveSearch();
-    } catch (error) {
-      if (signal?.aborted || !catalog) throw error;
-      // NASA's catalog is unreachable (offline or blocked by the host): show the
-      // processed products stored with TerraShift that match, clearly labelled.
+    const kinds = Object.keys(COLLECTIONS) as ProductKind[];
+    const boxes = splitBBox(bbox);
+    // One family: every box of a dateline-split area. Each family is fetched on its own and
+    // retried once (catalogSearch.ts), so one slow answer does not sink the other.
+    const fetchFamily = (kind: ProductKind) =>
+      Promise.all(
+        boxes.map(async (box) => {
+          const params = new URLSearchParams({
+            short_name: COLLECTIONS[kind],
+            bounding_box: box.join(","),
+            temporal: `${start}T00:00:00Z,${end}T23:59:59Z`,
+            page_size: String(PAGE_SIZE),
+            "sort_key[]": "-start_date",
+          });
+          if (selection.polygon && boxes.length === 1) {
+            params.delete("bounding_box");
+            params.set("polygon", selection.polygon.flat().join(","));
+          }
+          const result = await fetchJsonIdle<{
+            items: { meta: { "concept-id": string }; umm: UMM }[];
+            hits: number;
+          }>(`${CMR}?${params}`, signal);
+          return { kind, split: boxes.length > 1, ...result };
+        }),
+      );
+    const assemble = (settled: Settled<ProductKind, CmrPage[]>[], pending: ProductKind[]) =>
+      liveDiscovery(settled, pending, catalog, bbox, start, end);
+    const settled = await searchFamilies(
+      kinds,
+      fetchFamily,
+      (partial, pending) => {
+        // Show the first family as soon as it answers.
+        if (partial.some((s) => s.ok)) onPartial?.(assemble(partial, pending));
+      },
+      signal,
+    );
+    if (signal?.aborted) throw Error("Search cancelled.");
+    if (!settled.some((s) => s.ok)) {
+      const failure = settled.find((s) => !s.ok) as { error: unknown } | undefined;
+      if (!catalog) throw failure?.error ?? Error("NASA's catalog could not be reached.");
+      // NASA's catalog is unreachable (offline or blocked by the host) even after a retry:
+      // show the processed products stored with TerraShift that match, clearly labelled.
       return offlineDiscovery(selection, start, end, catalog);
     }
-    // Both product families, every box of a dateline-split area, in parallel.
-    async function liveSearch() {
-      const boxes = splitBBox(bbox);
-      return Promise.all(
-        (Object.keys(COLLECTIONS) as ProductKind[]).flatMap((kind) =>
-          boxes.map(async (box) => {
-            const params = new URLSearchParams({
-              short_name: COLLECTIONS[kind],
-              bounding_box: box.join(","),
-              temporal: `${start}T00:00:00Z,${end}T23:59:59Z`,
-              page_size: String(PAGE_SIZE),
-              "sort_key[]": "-start_date",
-            });
-            if (selection.polygon && boxes.length === 1) {
-              params.delete("bounding_box");
-              params.set("polygon", selection.polygon.flat().join(","));
-            }
-            const result = await request<{
-              items: { meta: { "concept-id": string }; umm: UMM }[];
-              hits: number;
-            }>(`${CMR}?${params}`, signal);
-            return { kind, split: boxes.length > 1, ...result };
-          }),
-        ),
-      );
-    }
-    const products = [
-      ...new Map(
-        results
-          .flatMap((r) => r.items)
-          .map((i) => {
-            const p = normalizeProduct(i, catalog);
-            return [p.id, p];
-          }),
-      ).values(),
-    ];
-    const hitsByKind = Object.fromEntries(
-      (Object.keys(COLLECTIONS) as ProductKind[]).map((k) => {
-        const r = results.filter((x) => x.kind === k);
-        return [k, r.length === 1 && !r[0].split ? r[0].hits : null];
-      }),
-    ) as Record<ProductKind, number | null>;
-    data = {
-      products,
-      returned: products.length,
-      hits:
-        hitsByKind.GUNW != null && hitsByKind.GCOV != null
-          ? hitsByKind.GUNW + hitsByKind.GCOV
-          : null,
-      hits_by_kind: hitsByKind,
-      bounded: results.some(
-        (r) => r.items.length >= PAGE_SIZE || r.hits > r.items.length,
-      ),
-      queried_utc: new Date().toISOString(),
-      source: "NASA CMR · direct public metadata",
-      query: { bbox, start, end },
-    };
+    data = assemble(settled, []);
+    // A partly failed search is shown but not cached, so searching again retries it.
+    if (data.failed?.length) return data;
   }
   cache.set(key, { at: Date.now(), data });
   return data;
 }
+type CmrPage = {
+  kind: ProductKind;
+  split: boolean;
+  items: { meta: { "concept-id": string }; umm: UMM }[];
+  hits: number;
+};
+/** Discovery from the families that answered so far (failed and pending ones are named). */
+export function liveDiscovery(
+  settled: Settled<ProductKind, CmrPage[]>[],
+  pending: ProductKind[],
+  catalog: Catalog | undefined,
+  bbox: BBox,
+  start: string,
+  end: string,
+): Discovery {
+  const results = settled.flatMap((s) => (s.ok ? s.value : []));
+  const products = [
+    ...new Map(
+      results
+        .flatMap((r) => r.items)
+        .map((i) => {
+          const p = normalizeProduct(i, catalog);
+          return [p.id, p];
+        }),
+    ).values(),
+  ];
+  const hitsByKind = Object.fromEntries(
+    (Object.keys(COLLECTIONS) as ProductKind[]).map((k) => {
+      const r = results.filter((x) => x.kind === k);
+      return [k, r.length === 1 && !r[0].split ? r[0].hits : null];
+    }),
+  ) as Record<ProductKind, number | null>;
+  const failed = settled.filter((s) => !s.ok).map((s) => s.kind);
+  return {
+    products,
+    returned: products.length,
+    hits: hitsByKind.GUNW != null && hitsByKind.GCOV != null ? hitsByKind.GUNW + hitsByKind.GCOV : null,
+    hits_by_kind: hitsByKind,
+    bounded: results.some((r) => r.items.length >= PAGE_SIZE || r.hits > r.items.length),
+    queried_utc: new Date().toISOString(),
+    source: "NASA CMR · direct public metadata",
+    query: { bbox, start, end },
+    ...(pending.length ? { pending } : {}),
+    ...(failed.length ? { failed } : {}),
+  };
+}
+
 /** Stored, processed products that overlap a search, for when the live catalog is unreachable. */
 export function offlineDiscovery(
   selection: Selection,

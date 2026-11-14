@@ -217,6 +217,10 @@ export interface Discovery {
   cached?: boolean;
   /** True when NASA's live catalog was unreachable and stored products are shown. */
   offline?: boolean;
+  /** Families still being fetched: the result shown so far is partial. */
+  pending?: ProductKind[];
+  /** Families whose search failed even after a retry, while the other one answered. */
+  failed?: ProductKind[];
 }
 export interface Place {
   name: string;

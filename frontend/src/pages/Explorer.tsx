@@ -389,26 +389,37 @@ export default function Explorer() {
     setStation(undefined);
     setJob(undefined);
     try {
-      const d = await discover(area, from, to, c.signal);
-      if (c.signal.aborted) return;
-      setResult(d);
       // Open a picture straight away: the shared product, else the latest of the
-      // preferred family (or of the other family when the preferred has none).
+      // preferred family (or of the other family when the preferred has none). With partial
+      // results, wait for the preferred family unless it is the one that is missing.
       const want = prefer ?? kind;
-      const family: ProductKind = d.products.some((p) => p.kind === want)
-        ? want
-        : want === "GUNW"
-          ? "GCOV"
-          : "GUNW";
-      const shared = d.products.find((p) => p.granule === wantedProduct.current);
-      wantedProduct.current = null;
-      const first = shared ?? timeline(d.products, family).at(-1);
-      setKind(shared?.kind ?? family);
-      if (first) {
-        setProduct(first);
-        setPairId(first.cached_pair);
-        setResultOpen(true);
-      }
+      let opened = false;
+      const show = (d: Discovery, final: boolean) => {
+        setResult(d);
+        if (opened) return;
+        const shared = wantedProduct.current ? d.products.find((p) => p.granule === wantedProduct.current) : undefined;
+        if (!shared && wantedProduct.current && !final) return;
+        const hasWanted = d.products.some((p) => p.kind === want);
+        if (!shared && !hasWanted && !final) return;
+        const family: ProductKind = hasWanted ? want : want === "GUNW" ? "GCOV" : "GUNW";
+        wantedProduct.current = null;
+        const first = shared ?? timeline(d.products, family).at(-1);
+        setKind(shared?.kind ?? family);
+        if (first) {
+          opened = true;
+          setProduct(first);
+          setPairId(first.cached_pair);
+          setResultOpen(true);
+        }
+      };
+      const d = await discover(area, from, to, c.signal, (partial) => {
+        if (!c.signal.aborted) {
+          setLoading(false);
+          show(partial, false);
+        }
+      });
+      if (c.signal.aborted) return;
+      show(d, true);
     } catch (e) {
       if (!c.signal.aborted) setError((e as Error).message);
     } finally {
@@ -764,6 +775,21 @@ export default function Explorer() {
                 </button>
               </>
             )}
+            {result.pending?.length ? (
+              <p className="catalog-pending" role="status">
+                <RefreshCw size={13} className="spin" /> Still loading{" "}
+                {result.pending.map((k) => kindLabels[k].long.toLowerCase()).join(" and ")} from NASA's catalog…
+              </p>
+            ) : null}
+            {result.failed?.length ? (
+              <div className="warning compact" role="alert">
+                <strong>{result.failed.map((k) => kindLabels[k].long).join(" and ")} could not be loaded.</strong>
+                <p>NASA's catalog did not answer, even after a second try. The other products are shown.</p>
+                <button className="text-button" onClick={() => find()}>
+                  <RefreshCw size={14} /> Search again
+                </button>
+              </div>
+            ) : null}
             {result.offline && (
               <div className="offline-notice" role="status">
                 <strong>NASA's live catalog could not be reached.</strong> Showing the processed

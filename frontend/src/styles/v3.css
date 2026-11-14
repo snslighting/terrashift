@@ -2878,3 +2878,11 @@
     padding: 36px 10px 10px;
   }
 }
+.catalog-pending {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  color: #bdeefa;
+  font-size: var(--fs-xs);
+}
