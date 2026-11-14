@@ -2886,3 +2886,70 @@
   color: #bdeefa;
   font-size: var(--fs-xs);
 }
+
+/* Tablet portrait (761-900 px): the side panel left a map too narrow for its panels (the date
+   slider shrank to 6 px at 768 px), so the Explorer stacks like on phones: search panel on top,
+   full-width map below. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .explorer-page {
+    height: auto;
+    min-height: 0;
+    display: block;
+  }
+  .explorer-panel {
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid #24374b;
+  }
+  .explorer-map-area {
+    height: 760px;
+    min-height: 600px;
+  }
+  .panel-collapsed .explorer-panel {
+    display: none;
+  }
+  .panel-collapsed .explorer-map-area {
+    height: calc(100svh - 72px);
+    min-height: 650px;
+  }
+  .jump-to-map {
+    display: inline-flex;
+  }
+  .product-list {
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .explorer-map-area .map-tools {
+    top: 110px;
+    right: 10px;
+    flex-direction: column;
+  }
+  /* Keep the right-hand column (zoom, compass, draw tools) clear of the result panel. */
+  .explorer-map-area .map-result-panel {
+    top: 70px;
+    right: 64px;
+    width: 256px;
+    max-height: calc(100% - 140px);
+  }
+  /* The "basemap offline" note stays left of the result panel. */
+  .explorer-map-area .map-offline {
+    left: 16px;
+    right: 336px;
+    transform: none;
+    max-width: none;
+  }
+}
+
+/* Standalone links are touch targets of at least 24 px (links inside sentences are exempt). */
+.source-link,
+.resource-list a,
+.theme-places a,
+.challenge-fit td a,
+.credits-section a,
+.learn-data a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}

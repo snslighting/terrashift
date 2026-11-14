@@ -506,6 +506,49 @@ try {
     await phone.close();
   });
 
+  await check("390 and 768 px: Explorer, Learn and About fit, with 24 px targets and no overlapping map panels", async () => {
+    for (const width of [390, 768]) {
+      const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 1024 }, isMobile: true, hasTouch: true });
+      await ctx.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
+      const p = await ctx.newPage();
+      p.on("pageerror", (e) => errors.push(e.message));
+      for (const route of ["explore/?preset=pantanal", "learn/", "about/"]) {
+        await p.goto(origin + base + route);
+        if (route.startsWith("explore")) await p.locator(".map-ribbon.preview").waitFor({ timeout: 15000 });
+        else await p.locator("main h1").first().waitFor();
+        await p.waitForTimeout(500);
+        const r = await p.evaluate(() => {
+          const shown = (e) => {
+            const b = e.getBoundingClientRect();
+            return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== "hidden";
+          };
+          // Standalone controls only: links inside a sentence are exempt from the 24 px rule.
+          const inSentence = (e) => e.tagName === "A" && e.parentElement?.matches("p, li span, td") && !e.matches(".source-link, .resource-list a, .theme-places a, .challenge-fit td a, .credits-section a, .learn-data a");
+          const small = [...document.querySelectorAll("main button, main a, main input, main select, main summary")]
+            .filter((e) => shown(e) && !inSentence(e) && !e.closest(".acq-calendar, .maplibregl-ctrl-attrib"))
+            .filter((e) => { const b = e.getBoundingClientRect(); return b.width < 24 || b.height < 24; })
+            .map((e) => (e.getAttribute("aria-label") || e.textContent || e.tagName).trim().slice(0, 30));
+          const panels = [".map-ribbon", ".time-scrubber", ".map-result-panel", ".map-legend", ".map-controls-top", ".map-tools", ".maplibregl-ctrl-top-right"]
+            .flatMap((sel) => [...document.querySelectorAll(sel)].filter(shown).map((e) => [sel, e.getBoundingClientRect()]));
+          const overlaps = [];
+          for (let i = 0; i < panels.length; i++)
+            for (let j = i + 1; j < panels.length; j++) {
+              const [a, A] = panels[i], [b, B] = panels[j];
+              if (Math.min(A.right, B.right) - Math.max(A.left, B.left) > 2 && Math.min(A.bottom, B.bottom) - Math.max(A.top, B.top) > 2) overlaps.push(`${a} x ${b}`);
+            }
+          const slider = document.querySelector(".time-scrubber input[type=range]")?.getBoundingClientRect().width;
+          return { sideways: document.documentElement.scrollWidth - innerWidth, small, overlaps, slider };
+        });
+        assert.ok(r.sideways <= 1, `${route} at ${width}px scrolls sideways by ${r.sideways}px`);
+        assert.deepEqual(r.small, [], `${route} at ${width}px: targets under 24 px`);
+        assert.deepEqual(r.overlaps, [], `${route} at ${width}px: overlapping map panels`);
+        if (r.slider !== undefined) assert.ok(r.slider >= 100, `${route} at ${width}px: date slider only ${Math.round(r.slider)} px wide`);
+        await p.screenshot({ path: join(out, `${route.split("/")[0]}-${width}.png`), fullPage: !route.startsWith("explore") });
+      }
+      await ctx.close();
+    }
+  });
+
   await check("no uncaught page errors", async () => {
     assert.deepEqual(errors, []);
   });
