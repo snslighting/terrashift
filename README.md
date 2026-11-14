@@ -113,7 +113,9 @@ Native phase uses `LOS_mm = −φ·λ/(4π)·1000`, toward the satellite positiv
 | Temurbek Tolibov | UX/UI Designer |
 | Amiriddin Ramazonov | Spokesman |
 
-TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
+TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied.
+
+**AI assistance.** The code, tests and documentation of TerraShift were written with the help of an AI assistant (Claude, by Anthropic) at the team's direction; commits made with it carry a `Co-Authored-By: Claude` line. Radar maps and previews come from NASA data and imagery, not from AI image generation. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
 
 ## License
 

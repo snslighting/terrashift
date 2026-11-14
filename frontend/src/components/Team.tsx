@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "motion/react";
 import { asset } from "../lib/api";
-import { credits, INDEPENDENCE, team } from "../lib/team";
+import { AI_ASSISTANCE, credits, INDEPENDENCE, team } from "../lib/team";
 
 /** Team members from lib/team.ts, in the order given. */
 export function TeamSection() {
@@ -57,6 +57,9 @@ export function TeamSection() {
         ))}
       </ul>
       <p className="team-independence">{INDEPENDENCE}</p>
+      <p className="team-independence" data-testid="ai-assistance">
+        {AI_ASSISTANCE}
+      </p>
     </section>
   );
 }

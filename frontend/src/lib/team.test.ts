@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { credits, INDEPENDENCE, team } from "./team";
+import { AI_ASSISTANCE, credits, INDEPENDENCE, team } from "./team";
 
 describe("team and credits", () => {
   it("lists exactly the six members, in the given order, with their roles", () => {
@@ -15,6 +15,11 @@ describe("team and credits", () => {
     for (const m of team) expect(m.photo).toBe(`team/${m.name.toLowerCase().replace(/ /g, "-")}.webp`);
     // Names, roles and an optional portrait only: nothing else about anyone.
     for (const m of team) expect(Object.keys(m).every((k) => ["name", "role", "photo"].includes(k))).toBe(true);
+  });
+  it("acknowledges AI assistance in code and documentation", () => {
+    expect(AI_ASSISTANCE).toMatch(/AI assistance/);
+    expect(AI_ASSISTANCE).toMatch(/Claude/);
+    expect(AI_ASSISTANCE).toMatch(/code, tests and documentation/);
   });
   it("keeps the independence line", () => {
     expect(INDEPENDENCE).toMatch(/independent .*Space Apps/);
