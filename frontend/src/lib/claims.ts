@@ -45,10 +45,11 @@ export function claims(catalog: Catalog | undefined) {
     "A total uncertainty for the ground-motion maps: it is not known yet.",
     ...(unprocessed.length
       ? [
-          `Any measured result for ${unprocessed.map(label).map((l) => l.toLowerCase()).join(" or ")}: a wetland case is prepared but not processed yet.`,
+          `Any measured result for ${unprocessed.map(label).map((l) => l.toLowerCase()).join(" or ")}: no case has been processed yet.`,
         ]
       : []),
-    "That an earthquake, rather than background change, caused every change on an event map: quiet-period control pairs are prepared but not processed yet.",
+    "That an earthquake, rather than background change, caused every change on an event map: the quiet-period control pairs are processed but not yet compared with the event maps (the Flores control keeps almost no usable pixels).",
+    "That the Pantanal brightening is flooding or any other real change: it is large and even across the scene, so a seasonal or processing effect is not ruled out.",
     "Anything from other radars (RCM, SAOCOM, RADARSAT-1): they are described, not loaded.",
   ];
   return { can, cannot };

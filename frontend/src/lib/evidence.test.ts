@@ -101,6 +101,21 @@ describe("story numbers match the catalog (B3)", () => {
     expect(Math.round(Math.hypot(e, n))).toBe(466);
   });
 
+  it("Pantanal: a median brightening of about 4 dB in both HH and HV, over 5 July to 21 October", () => {
+    const s = study("pantanal-wetland"),
+      pair = s.pairs[0];
+    expect(narratives[s.id].takeaway).toContain("5 July and 21 October");
+    expect(pair.before).toBe("2026-07-05");
+    expect(pair.after).toBe("2026-10-21");
+    for (const kind of ["backscatter_change", "backscatter_change_hv"] as const) {
+      const median = pair.layers[kind]!.native_statistics.median!;
+      expect(median).toBeGreaterThan(3.5);
+      expect(median).toBeLessThan(5);
+    }
+    // Reported as a candidate, never as confirmed flooding.
+    expect(narratives[s.id].takeaway).toContain("not confirmed as flooding");
+  });
+
   it("Flores: 'more than a quarter' of land", () => {
     expect(narratives["flores-2026"].takeaway).toMatch(/^More than a quarter/);
     const pct = percentIn(study("flores-2026"), "lost more than half");

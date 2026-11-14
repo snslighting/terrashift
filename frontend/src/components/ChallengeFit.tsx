@@ -37,8 +37,9 @@ export function ChallengeFit() {
       what: (
         <>
           HH and HV previews (frequencies A and B) for every backscatter product, with a reading guide and a
-          colour legend. Measured HH and HV change needs a processed backscatter case: the Pantanal wetland case is
-          prepared, not run yet.
+          colour legend. Measured HH and HV change for the Pantanal wetland (5 July to 21 October 2026) is processed
+          and provisional: brightening that large and even could be seasonal or a processing effect, so it is not
+          a confirmed finding.
         </>
       ),
     },
@@ -58,7 +59,7 @@ export function ChallengeFit() {
       what: (
         <>
           A date slider, play button, same-track compare and acquisition calendar for every place; {pairs} processed
-          radar pairs; GNSS time series at stations. A processed backscatter series is prepared (9 dates), not run.
+          radar pairs; GNSS time series at stations. The backscatter case is one before/after pair; the full 9-date series is not processed.
         </>
       ),
     },

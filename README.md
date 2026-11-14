@@ -11,7 +11,8 @@
 | Farming & land disturbance | San Joaquin Valley, California | Coherence loss between 12-day revisits, and how it changes from one period to the next |
 | Earthquake deformation | Caracas coast, Venezuela (M7.2 + M7.5, 24 Jun 2026) · Flores, Indonesia (M7.8, 14 Aug 2026) | Line-of-sight ground motion from interferometric phase; coherence loss across the event |
 | Land subsidence | San Joaquin Valley | Line-of-sight motion checked against 12–13 independent GNSS stations |
-| Floods, wetlands, wildfire | Pipeline ready | NISAR GCOV backscatter change (dB); appears once real products are processed |
+| Wetlands (floods) | Pantanal wetland, Brazil (5 Jul to 21 Oct 2026), provisional | NISAR GCOV backscatter change (dB) in HH and HV; a large, even brightening that is a candidate, not a confirmed flood or seasonal result |
+| Wildfire | Pipeline ready | Same method; appears once a real product pair is processed |
 
 Every result leads with what changed and states how sure we are: product identifiers, dates, references, units, the independent GNSS check (including when it fails) and known limits.
 
@@ -28,9 +29,9 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 | The challenge asks for | TerraShift today |
 |---|---|
 | Use real NISAR data | Real NISAR L2 GUNW products, checksum-verified, with live NASA CMR discovery of GUNW and GCOV products; NASA's own preview image of every product found is placed on the map |
-| Changes at locations around the world | Processed: farming (California), earthquakes (Venezuela, Indonesia), subsidence (California). NASA previews anywhere NISAR has looked, with 23 one-click sample places (wetlands, fire, farming, volcanoes, ice, sinking cities). Floods, wetlands and wildfire are not yet processed by TerraShift |
+| Changes at locations around the world | Processed: farming (California), earthquakes (Venezuela, Indonesia), subsidence (California). NASA previews anywhere NISAR has looked, with 23 one-click sample places (wetlands, fire, farming, volcanoes, ice, sinking cities). A Pantanal wetland pair is processed (provisional); wildfire is not yet processed by TerraShift |
 | Time series from different dates | Four processed 12-day pairs across three areas; for any place, a date slider with play, a same-track swipe compare and an acquisition calendar over every product found; GNSS time series at stations |
-| Which polarizations highlight which change | HH and HV previews (both L-band frequencies, A and B) switchable for every GCOV product, with a reading guide and a colour legend. Measured HH/HV change still needs a processed GCOV case: the Pantanal case is prepared ([docs/GCOV_AND_CONTROL_CASES.md](docs/GCOV_AND_CONTROL_CASES.md)), not run |
+| Which polarizations highlight which change | HH and HV previews (both L-band frequencies, A and B) switchable for every GCOV product, with a reading guide and a colour legend. Measured HH/HV change exists for one case: Pantanal wetland, 5 July to 21 October 2026, provisional and not a confirmed finding ([docs/GCOV_AND_CONTROL_CASES.md](docs/GCOV_AND_CONTROL_CASES.md)) |
 | Optical imagery or GIS context | "Optical on this date" basemap (NASA GIBS MODIS true colour for the product's date; says so when GIBS has no image of that day), satellite and terrain basemaps, country outlines, GNSS stations and USGS epicentres |
 | Hypothesize the physical drivers | "Likely drivers" per Earth Story, stated as hypotheses with the evidence for and against |
 | Future applications of NISAR | "What NISAR could do next" section on the Earth Stories page |
