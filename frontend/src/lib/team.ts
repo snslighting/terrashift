@@ -1,6 +1,6 @@
 /**
  * The TerraShift team, in the order given by the team. Names and roles only, plus a portrait
- * where the team supplied one (files in public/team). Nothing else is published about anyone.
+ * supplied by the team (files in public/team). Nothing else is published about anyone.
  */
 export interface Member {
   name: string;
@@ -10,12 +10,12 @@ export interface Member {
 }
 
 export const team: Member[] = [
-  { name: "Sharifjon Farmonov", role: "Product Manager" },
-  { name: "Sardorbek Komilov", role: "Backend Developer" },
+  { name: "Sharifjon Farmonov", role: "Product Manager", photo: "team/sharifjon-farmonov.webp" },
+  { name: "Sardorbek Komilov", role: "Backend Developer", photo: "team/sardorbek-komilov.webp" },
   { name: "Nurjahon Shodiyev", role: "Frontend Developer", photo: "team/nurjahon-shodiyev.webp" },
-  { name: "Jahongir Karimov", role: "Data Analyst & Researcher" },
-  { name: "Temurbek Tolibov", role: "UX/UI Designer" },
-  { name: "Amiriddin Ramazonov", role: "Spokesman" },
+  { name: "Jahongir Karimov", role: "Data Analyst & Researcher", photo: "team/jahongir-karimov.webp" },
+  { name: "Temurbek Tolibov", role: "UX/UI Designer", photo: "team/temurbek-tolibov.webp" },
+  { name: "Amiriddin Ramazonov", role: "Spokesman", photo: "team/amiriddin-ramazonov.webp" },
 ];
 
 export const INDEPENDENCE =

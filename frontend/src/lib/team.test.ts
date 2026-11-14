@@ -11,6 +11,8 @@ describe("team and credits", () => {
       "Temurbek Tolibov: UX/UI Designer",
       "Amiriddin Ramazonov: Spokesman",
     ]);
+    // Every member has a portrait file named after them.
+    for (const m of team) expect(m.photo).toBe(`team/${m.name.toLowerCase().replace(/ /g, "-")}.webp`);
     // Names, roles and an optional portrait only: nothing else about anyone.
     for (const m of team) expect(Object.keys(m).every((k) => ["name", "role", "photo"].includes(k))).toBe(true);
   });

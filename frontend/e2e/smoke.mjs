@@ -434,10 +434,13 @@ try {
     assert.equal(members.length, 6);
     assert.match(members[0], /Sharifjon Farmonov\s+Product Manager/);
     assert.match(members[5], /Amiriddin Ramazonov\s+Spokesman/);
-    const photo = page.locator(".team-list img[alt='Portrait of Nurjahon Shodiyev']");
-    await photo.scrollIntoViewIfNeeded();
-    await page.waitForFunction(() => document.querySelector(".team-list img")?.complete);
-    assert.ok(await photo.evaluate((img) => img.complete && img.naturalWidth > 0), "portrait did not load");
+    // Every member has a portrait, and each one loads.
+    await page.locator(".team-list").scrollIntoViewIfNeeded();
+    assert.equal(await page.locator(".team-list img").count(), 6);
+    await page.waitForFunction(() => [...document.querySelectorAll(".team-list img")].every((i) => i.complete), null, { timeout: 10000 });
+    const broken = await page.locator(".team-list img").evaluateAll((imgs) => imgs.filter((i) => !i.naturalWidth).map((i) => i.alt));
+    assert.deepEqual(broken, []);
+    assert.equal(await page.locator(".team-list img[alt='Portrait of Sharifjon Farmonov']").count(), 1);
     await page.getByText("No endorsement by NASA, ISRO or any institution is implied").waitFor();
     assert.equal(await page.getByText("have not been supplied").count(), 0);
     const credits = await page.locator(".credits-section").innerText();
