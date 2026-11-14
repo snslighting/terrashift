@@ -1,4 +1,4 @@
-import type { BBox } from "./types";
+import type { Position } from "./types";
 import type { PreviewImage, Progress } from "./browse";
 
 /** How long a preview may take (download and preparation) before we give up and offer a retry. */
@@ -17,16 +17,18 @@ export type PreviewState =
 export interface PreviewRequest {
   key: string;
   url: string;
-  approximate: boolean;
-  bounds: BBox;
+  /** Single-polarization image in the product's own map grid (else lat/lon). */
+  native: boolean;
+  /** Outer ring of the product footprint. */
+  footprint: Position[];
   /** NASA's 100 px thumbnail, shown while the full image loads (combined image only). */
   thumbnail?: string;
 }
 
 type Load = (
   url: string,
-  bounds: BBox,
-  approximate: boolean,
+  footprint: Position[],
+  native: boolean,
   options: { onProgress?: Progress; signal?: AbortSignal },
 ) => Promise<PreviewImage>;
 
@@ -67,13 +69,13 @@ export function startPreview(
   };
   send({ status: "loading", key, ...progress });
   if (request.thumbnail)
-    load(request.thumbnail, request.bounds, false, { signal: controller.signal })
+    load(request.thumbnail, request.footprint, false, { signal: controller.signal })
       .then((image) => {
         thumb = image;
         send({ status: "loading", key, ...progress, thumb });
       })
       .catch(() => {});
-  load(request.url, request.bounds, request.approximate, {
+  load(request.url, request.footprint, request.native, {
     signal: controller.signal,
     onProgress: (fraction, loaded, total) => {
       progress = { progress: fraction, loaded, total };

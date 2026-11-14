@@ -42,6 +42,7 @@ import {
   getJob,
   backendConfigured,
   findPair,
+  cmrGranuleUrl,
 } from "../lib/api";
 import {
   pointBBox,
@@ -912,7 +913,7 @@ export default function Explorer() {
         {!pair && product && shown && (
           <div className="map-ribbon preview" role="note">
             NASA PREVIEW{previewLabel ? ` · ${previewLabel.toUpperCase()}` : ""} · NOT PROCESSED BY TERRASHIFT
-            {shown.approximate ? " · PLACEMENT APPROXIMATE" : ""}
+            {" · PLACEMENT APPROXIMATE"}
             {preview.status === "loading" ? " · LOW DETAIL, LOADING" : ""}
           </div>
         )}
@@ -1076,7 +1077,7 @@ export default function Explorer() {
                       <ArrowRight size={15} />
                     </Link>
                     <SourceLink
-                      href={`https://cmr.earthdata.nasa.gov/search/granules.umm_json?granule_ur=${encodeURIComponent(pair.granule)}`}
+                      href={cmrGranuleUrl(pair.granule)}
                     >
                       Original product metadata
                     </SourceLink>

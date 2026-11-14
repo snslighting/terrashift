@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPreviewLoader, fitSize, MAX_SIDE, pngSize, PreviewCache, type Prepare, type PreviewImage } from "./browse";
 import { PREVIEW_TIMEOUT_MS, startPreview, stateFor, type PreviewState } from "./previewRequest";
-import type { BBox } from "./types";
+import type { Position } from "./types";
 
-const BOX: BBox = [0, 0, 1, 1];
-const image = (id: string): PreviewImage => ({ id, bitmap: { close() {} } as ImageBitmap, coordinates: [], width: 10, height: 10, approximate: false });
+const RING: Position[] = [
+  [0, 0],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+];
+const image = (id: string): PreviewImage => ({ id, bitmap: { close() {} } as ImageBitmap, coordinates: [], width: 10, height: 10, grid: "lat/lon" });
 
 /** A promise you resolve or reject by hand, to stage races. */
 function deferred<T>() {
@@ -69,12 +74,12 @@ describe("preview loader (item 2)", () => {
     const job = deferred<PreviewImage>(),
       prepare = vi.fn<Prepare>(() => job.promise),
       loader = createPreviewLoader(prepare);
-    const a = loader.load("u", BOX, false),
-      b = loader.load("u", BOX, false);
+    const a = loader.load("u", RING, false),
+      b = loader.load("u", RING, false);
     job.ok(image("blob:u"));
     expect((await a).id).toBe("blob:u");
     expect((await b).id).toBe("blob:u");
-    await loader.load("u", BOX, false);
+    await loader.load("u", RING, false);
     expect(prepare).toHaveBeenCalledTimes(1);
   });
   it("aborts the download only when every view has stopped wanting it", async () => {
@@ -86,8 +91,8 @@ describe("preview loader (item 2)", () => {
     const loader = createPreviewLoader(prepare),
       first = new AbortController(),
       second = new AbortController();
-    const a = loader.load("u", BOX, false, { signal: first.signal }).catch((e) => e.name);
-    const b = loader.load("u", BOX, false, { signal: second.signal }).catch((e) => e.name);
+    const a = loader.load("u", RING, false, { signal: first.signal }).catch((e) => e.name);
+    const b = loader.load("u", RING, false, { signal: second.signal }).catch((e) => e.name);
     first.abort();
     expect(await a).toBe("AbortError");
     expect(signal.aborted).toBe(false);
@@ -99,8 +104,8 @@ describe("preview loader (item 2)", () => {
   it("does not cache failures, so a retry downloads again", async () => {
     const prepare = vi.fn<Prepare>().mockRejectedValueOnce(Error("NASA's image server returned 500.")).mockResolvedValue(image("blob:u"));
     const loader = createPreviewLoader(prepare);
-    await expect(loader.load("u", BOX, false)).rejects.toThrow("500");
-    expect((await loader.load("u", BOX, false)).id).toBe("blob:u");
+    await expect(loader.load("u", RING, false)).rejects.toThrow("500");
+    expect((await loader.load("u", RING, false)).id).toBe("blob:u");
     expect(prepare).toHaveBeenCalledTimes(2);
   });
 });
@@ -108,16 +113,16 @@ describe("preview loader (item 2)", () => {
 describe("preview requests: switching product, data type or polarization (item 1)", () => {
   it("ignores a result that arrives after the user moved on, and cancels its download", async () => {
     const jobs = new Map<string, { d: ReturnType<typeof deferred<PreviewImage>>; signal?: AbortSignal }>();
-    const load = (url: string, _b: BBox, _a: boolean, o: { signal?: AbortSignal }) => {
+    const load = (url: string, _b: Position[], _a: boolean, o: { signal?: AbortSignal }) => {
       const d = deferred<PreviewImage>();
       jobs.set(url, { d, signal: o.signal });
       return d.promise;
     };
     const seen: PreviewState[] = [];
     // Ground-motion image requested, then the user switches to Backscatter.
-    const cancelGunw = startPreview({ key: "gunw|combined|0", url: "gunw.png", approximate: false, bounds: BOX }, (s) => seen.push(s), load);
+    const cancelGunw = startPreview({ key: "gunw|combined|0", url: "gunw.png", native: false, footprint: RING }, (s) => seen.push(s), load);
     cancelGunw();
-    startPreview({ key: "gcov|combined|0", url: "gcov.png", approximate: false, bounds: BOX }, (s) => seen.push(s), load);
+    startPreview({ key: "gcov|combined|0", url: "gcov.png", native: false, footprint: RING }, (s) => seen.push(s), load);
     expect(jobs.get("gunw.png")!.signal!.aborted).toBe(true);
     // The old image finishes late; it must not be reported.
     jobs.get("gunw.png")!.d.ok(image("blob:gunw"));
@@ -141,7 +146,7 @@ describe("preview requests: switching product, data type or polarization (item 1
       thumb = deferred<PreviewImage>(),
       seen: PreviewState[] = [];
     startPreview(
-      { key: "k", url: "full.png", thumbnail: "thumb.png", approximate: false, bounds: BOX },
+      { key: "k", url: "full.png", thumbnail: "thumb.png", native: false, footprint: RING },
       (s) => seen.push(s),
       (url) => (url === "thumb.png" ? thumb.promise : full.promise),
     );
@@ -156,7 +161,7 @@ describe("preview requests: switching product, data type or polarization (item 1
     let signal!: AbortSignal;
     const seen: PreviewState[] = [];
     startPreview(
-      { key: "k", url: "slow.png", approximate: false, bounds: BOX },
+      { key: "k", url: "slow.png", native: false, footprint: RING },
       (s) => seen.push(s),
       (_u, _b, _a, o) => {
         signal = o.signal!;
@@ -172,7 +177,7 @@ describe("preview requests: switching product, data type or polarization (item 1
   });
   it("explains an unreachable server in plain words", async () => {
     const seen: PreviewState[] = [];
-    startPreview({ key: "k", url: "x.png", approximate: false, bounds: BOX }, (s) => seen.push(s), () => Promise.reject(new TypeError("Failed to fetch")));
+    startPreview({ key: "k", url: "x.png", native: false, footprint: RING }, (s) => seen.push(s), () => Promise.reject(new TypeError("Failed to fetch")));
     await flush();
     expect(seen.at(-1)).toMatchObject({ status: "error", timedOut: false, message: "NASA's image server could not be reached." });
   });

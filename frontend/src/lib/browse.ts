@@ -1,4 +1,5 @@
 import type { BBox, BrowseBand, BrowseSet, Position, Product } from "./types";
+import { mercatorLat, mercatorY, nativeGrids } from "./projection";
 
 /**
  * NASA's public NISAR preview ("browse") images.
@@ -44,16 +45,20 @@ export function ringBounds(ring: Position[]): BBox {
   return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
 }
 
-export function footprintBounds(product: Product): BBox | null {
+/** All outer-ring points of a product's footprint (every part of a multipolygon). */
+export function footprintRing(product: Product): Position[] {
   const g = product.geometry;
-  if (!g) return null;
-  const rings: Position[] =
-    g.type === "Polygon"
-      ? (g.coordinates[0] as Position[])
-      : g.type === "MultiPolygon"
-        ? (g.coordinates.flatMap((p) => p[0]) as Position[])
-        : [];
-  return rings.length ? ringBounds(rings) : null;
+  if (!g) return [];
+  return g.type === "Polygon"
+    ? (g.coordinates[0] as Position[])
+    : g.type === "MultiPolygon"
+      ? (g.coordinates.flatMap((p) => p[0]) as Position[])
+      : [];
+}
+
+export function footprintBounds(product: Product): BBox | null {
+  const ring = footprintRing(product);
+  return ring.length ? ringBounds(ring) : null;
 }
 
 /** Pixel extent of an image's valid data: first and last valid column and row. */
@@ -91,6 +96,74 @@ export function placeImage(extent: Extent, width: number, height: number, bounds
     [right, bottom],
     [left, bottom],
   ];
+}
+
+/**
+ * Corners for a single-polarization image, which NASA renders in the product's own map grid
+ * (UTM, or polar stereographic near the poles). The grid is chosen by shape: the footprint's
+ * box in the right grid has the same width-to-height ratio as the image's valid data. The
+ * valid data's box is matched to the footprint's box in that grid, and the four image corners
+ * are projected back to longitude and latitude, so the map draws a slightly turned quad.
+ *
+ * Checked against OpenStreetMap coastlines (scripts/check_preview_alignment.py): within about
+ * 0.2-0.6 km on GCOV scenes in Libya (UTM 33N) and Iceland (EPSG:3413, two orbits), where
+ * stretching the image over a longitude/latitude box was 1.3 km to more than 5 km off.
+ */
+export function placeNative(
+  extent: Extent,
+  width: number,
+  height: number,
+  ring: Position[],
+): { coordinates: Position[]; grid: string; mismatch: number } {
+  const imageAspect = (extent.x1 + 1 - extent.x0) / (extent.y1 + 1 - extent.y0);
+  let best: { mismatch: number; grid: ReturnType<typeof nativeGrids>[number]; box: BBox } | undefined;
+  for (const grid of nativeGrids(ring)) {
+    const p = ring.map(([lon, lat]) => grid.forward(lon, lat)),
+      xs = p.map((v) => v[0]),
+      ys = p.map((v) => v[1]),
+      box: BBox = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
+      mismatch = Math.abs(Math.log((box[2] - box[0]) / (box[3] - box[1]) / imageAspect));
+    if (!best || mismatch < best.mismatch) best = { mismatch, grid, box };
+  }
+  const { grid, box, mismatch } = best!,
+    [xmin, , xmax, ymax] = box,
+    sx = (xmax - xmin) / (extent.x1 + 1 - extent.x0),
+    sy = (box[3] - box[1]) / (extent.y1 + 1 - extent.y0);
+  const corners = (
+    [
+      [0, 0],
+      [width, 0],
+      [width, height],
+      [0, height],
+    ] as Position[]
+  ).map(([px, py]) => grid.inverse(xmin + (px - extent.x0) * sx, ymax - (py - extent.y0) * sy));
+  // Keep longitudes continuous across the 180° line, as the map needs.
+  const base = corners[0][0];
+  return {
+    coordinates: corners.map(([lon, lat]) => [lon + 360 * Math.round((base - lon) / 360), lat] as Position),
+    grid: grid.name,
+    mismatch,
+  };
+}
+
+/**
+ * NASA's lat/lon previews have rows evenly spaced in latitude, but the map stretches an image
+ * evenly in Web Mercator. Left as is, the middle of a scene shifts toward the equator: about
+ * 1.8 km at 33°N and more than 5 km at 64°N, measured against coastlines. This re-spaces the
+ * rows (nearest row, no blending) so the map puts every row at its latitude. `top` and
+ * `bottom` are the latitudes of the image's outer edges.
+ */
+export function mercatorRows(rgba: Uint8ClampedArray, width: number, height: number, top: number, bottom: number) {
+  const out = new Uint8ClampedArray(rgba.length),
+    row = width * 4,
+    yt = mercatorY(top),
+    yb = mercatorY(bottom);
+  for (let i = 0; i < height; i++) {
+    const lat = mercatorLat(yt + ((i + 0.5) / height) * (yb - yt)),
+      src = Math.min(height - 1, Math.max(0, Math.floor(((top - lat) / (top - bottom)) * height)));
+    out.set(rgba.subarray(src * row, src * row + row), i * row);
+  }
+  return out;
 }
 
 /**
@@ -162,8 +235,12 @@ export interface PreviewImage {
   coordinates: Position[];
   width: number;
   height: number;
-  /** True for images in the product's own map grid, placed approximately. */
-  approximate: boolean;
+  /**
+   * How it was placed: "lat/lon" for NASA's lat/lon composite, else the map grid of a
+   * single-polarization image (e.g. "UTM zone 33N"). Placement always comes from the
+   * footprint, not from coordinates in the file, so it is approximate (about 1-2 km).
+   */
+  grid: string;
 }
 
 /** Longest side, in pixels, of a preview placed on the map. Larger images are scaled down. */
@@ -243,7 +320,8 @@ export class PreviewCache {
 }
 
 export type Progress = (fraction: number, loaded: number, total: number) => void;
-export type Prepare = (url: string, bounds: BBox, approximate: boolean, signal: AbortSignal, onProgress: Progress) => Promise<PreviewImage>;
+/** `native`: the image is in the product's own map grid (single polarization), else lat/lon. */
+export type Prepare = (url: string, footprint: Position[], native: boolean, signal: AbortSignal, onProgress: Progress) => Promise<PreviewImage>;
 
 const abortError = (signal: AbortSignal) =>
   signal.reason instanceof Error ? signal.reason : new DOMException("The preview request was cancelled.", "AbortError");
@@ -260,8 +338,8 @@ export function createPreviewLoader(prepare: Prepare, cache = new PreviewCache()
   >();
   function load(
     url: string,
-    bounds: BBox,
-    approximate: boolean,
+    footprint: Position[],
+    native: boolean,
     options: { onProgress?: Progress; signal?: AbortSignal } = {},
   ): Promise<PreviewImage> {
     const { onProgress, signal } = options;
@@ -276,7 +354,7 @@ export function createPreviewLoader(prepare: Prepare, cache = new PreviewCache()
         controller,
         users: 0,
         listeners,
-        promise: prepare(url, bounds, approximate, controller.signal, (f, l, t) => listeners.forEach((fn) => fn(f, l, t))),
+        promise: prepare(url, footprint, native, controller.signal, (f, l, t) => listeners.forEach((fn) => fn(f, l, t))),
       };
       created.promise.then(
         (image) => {
@@ -357,7 +435,7 @@ async function fetchBytes(url: string, signal: AbortSignal, onProgress: Progress
  * stops between steps once the request is cancelled.
  */
 let serial = 0;
-const prepareInBrowser: Prepare = async (url, bounds, approximate, signal, onProgress) => {
+const prepareInBrowser: Prepare = async (url, footprint, native, signal, onProgress) => {
   const blob = await fetchBytes(url, signal, onProgress);
   signal.throwIfAborted();
   const size = pngSize(new Uint8Array(await blob.slice(0, 24).arrayBuffer()));
@@ -379,7 +457,16 @@ const prepareInBrowser: Prepare = async (url, bounds, approximate, signal, onPro
       extent = maskNoData(data.data, width, height);
     if (!extent) throw Error("This preview image is empty.");
     signal.throwIfAborted();
-    const masked = await createImageBitmap(data);
+    let coordinates: Position[], grid: string, pixels: ImageData;
+    if (native) {
+      ({ coordinates, grid } = placeNative(extent, width, height, footprint));
+      pixels = data;
+    } else {
+      coordinates = placeImage(extent, width, height, ringBounds(footprint));
+      grid = "lat/lon";
+      pixels = new ImageData(mercatorRows(data.data, width, height, coordinates[0][1], coordinates[3][1]), width, height);
+    }
+    const masked = await createImageBitmap(pixels);
     // Free the canvas memory now rather than at the next garbage collection.
     canvas.width = canvas.height = 0;
     if (signal.aborted) {
@@ -389,10 +476,10 @@ const prepareInBrowser: Prepare = async (url, bounds, approximate, signal, onPro
     return {
       id: `${url}#${++serial}`,
       bitmap: masked,
-      coordinates: placeImage(extent, width, height, bounds),
+      coordinates,
       width,
       height,
-      approximate,
+      grid,
     };
   } finally {
     bitmap.close?.();
@@ -407,13 +494,13 @@ export const holdPreview = (id: string) => browserLoader.cache.pin(id);
 
 /** Image choices for a product: the combined composite, then each frequency/polarization. */
 export function previewChoices(product: Product) {
-  const choices: { id: string; label: string; url: string; approximate: boolean }[] = [];
+  const choices: { id: string; label: string; url: string; native: boolean }[] = [];
   if (product.browse.combined)
     choices.push({
       id: "combined",
       label: product.kind === "GCOV" ? "Combined" : "Interferogram",
       url: product.browse.combined,
-      approximate: false,
+      native: false,
     });
   const freqs = new Set(product.browse.bands.map((b) => b.frequency));
   for (const b of product.browse.bands)
@@ -421,7 +508,7 @@ export function previewChoices(product: Product) {
       id: b.id,
       label: freqs.size > 1 ? `${b.polarization} · ${b.frequency}` : b.polarization,
       url: b.url,
-      approximate: true,
+      native: true,
     });
   return choices;
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftRight, ArrowRight, Pause, Play, RefreshCw, X } from "lucide-react";
 import { asset } from "../lib/api";
-import { holdPreview, loadPreview, previewChoices, footprintBounds, type PreviewImage } from "../lib/browse";
+import { holdPreview, loadPreview, previewChoices, footprintBounds, footprintRing, type PreviewImage } from "../lib/browse";
 import { startPreview, stateFor, type PreviewState } from "../lib/previewRequest";
 import { geometries, placeStats, timeline } from "../lib/catalogStats";
 import { ladder, sameGeometry, trustLabels, type Trust } from "../lib/evidence";
@@ -66,15 +66,15 @@ export function usePreview(product: Product | undefined, choice: string) {
   const [raw, setState] = useState<PreviewState>({ status: "idle", key: "" });
   useEffect(() => {
     if (!key || !product) return;
-    const bounds = footprintBounds(product)!,
+    const footprint = footprintRing(product),
       options = previewChoices(product),
       pick = options.find((o) => o.id === choice) ?? options[0];
     return startPreview(
       {
         key,
         url: pick.url,
-        approximate: pick.approximate,
-        bounds,
+        native: pick.native,
+        footprint,
         thumbnail: pick.id === "combined" ? product.browse.thumbnail : undefined,
       },
       setState,
@@ -137,12 +137,14 @@ export function PolarizationSwitch({
           </li>
         )}
       </ul>
-      {current.approximate && (
-        <p className="tiny">
-          Single-polarization images come in the product's own map grid; on this map they are placed
-          approximately (corners checked within about 4 km on scenes about 300 km wide).
-        </p>
-      )}
+      <p className="tiny">
+        {current.native
+          ? "Single-polarization images come in the product's own map grid (UTM, or polar stereographic near the poles). "
+          : "The combined image is on a latitude/longitude grid. "}
+        NASA's preview files carry no map coordinates, so TerraShift places them from the product
+        footprint: approximate placement. Checked against coastlines on three scenes (Libya and
+        Iceland), within about 0.2 to 1.5 km.
+      </p>
     </div>
   );
 }

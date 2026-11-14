@@ -188,8 +188,16 @@ export async function previewImage(
     y += 30;
   }
   y = wrap(g, ladder[level - 1].text, x, y + 14, tw, 21, "#a5bacb", "400 14px 'DM Sans', system-ui, sans-serif");
-  if (image.approximate)
-    y = wrap(g, "Single-polarization image in the product's own map grid; placement is approximate.", x, y + 10, tw, 21, "#8ea3b6", "400 14px 'DM Sans', system-ui, sans-serif");
+  y = wrap(
+    g,
+    `Placed from the product footprint (${image.grid === "lat/lon" ? "lat/lon composite" : `map grid ${image.grid}`}); the file has no map coordinates, so placement is approximate.`,
+    x,
+    y + 10,
+    tw,
+    21,
+    "#8ea3b6",
+    "400 14px 'DM Sans', system-ui, sans-serif",
+  );
   g.fillStyle = "#8ea3b6";
   g.font = "400 13px 'DM Sans', system-ui, sans-serif";
   g.fillText(`Source: NASA/JPL-Caltech NISAR preview via NASA ASF DAAC · ${product.granule}`, M, H - 44);

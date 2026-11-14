@@ -20,7 +20,7 @@ import { useApp } from "../lib/context";
 import { statuses, number, downloadJSON, longDate } from "../lib/science";
 import { validationLabel } from "../lib/evidence";
 import type { Status } from "../lib/types";
-import { backendConfigured } from "../lib/api";
+import { backendConfigured, cmrGranuleUrl } from "../lib/api";
 export default function Data() {
   const { catalog } = useApp();
   const pairs = (catalog?.cases ?? []).flatMap((c) =>
@@ -192,7 +192,7 @@ export default function Data() {
                 </div>
               </div>
               <SourceLink
-                href={`https://cmr.earthdata.nasa.gov/search/granules.umm_json?granule_ur=${encodeURIComponent(p.granule)}`}
+                href={cmrGranuleUrl(p.granule)}
               >
                 Original NASA CMR metadata
               </SourceLink>

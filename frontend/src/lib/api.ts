@@ -18,6 +18,12 @@ export const asset = (path: string) => base + path.replace(/^\//, "");
 const api = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 export const backendConfigured = Boolean(api);
 export const CMR = "https://cmr.earthdata.nasa.gov/search/granules.umm_json";
+/**
+ * NASA CMR record of one granule by name. CMR refuses a name-only query across
+ * all collections, so the provider (ASF, which hosts NISAR) is named too.
+ */
+export const cmrGranuleUrl = (granule: string) =>
+  `${CMR}?provider=ASF&granule_ur=${encodeURIComponent(granule)}`;
 export const COLLECTION = "NISAR_L2_GUNW_PROVISIONAL_V1";
 /** Catalog short names of the two public NISAR product families TerraShift searches. */
 export const COLLECTIONS: Record<ProductKind, string> = {
@@ -462,7 +468,7 @@ export function offlineDiscovery(
         orbit: pair.orbit ?? null,
         polarizations: [],
         geometry: { type: "Polygon", coordinates: [ring] },
-        source_url: `${CMR}?granule_ur=${encodeURIComponent(pair.granule)}`,
+        source_url: cmrGranuleUrl(pair.granule),
         download_auth_required: true,
         cached_pair: pair.id,
         cached_case: study.id,
