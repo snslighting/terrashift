@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeftRight, ArrowRight, Pause, Play, RefreshCw, X } from "lucide-react";
 import { asset } from "../lib/api";
-import { loadPreview, previewChoices, footprintBounds, type PreviewImage } from "../lib/browse";
+import { holdPreview, loadPreview, previewChoices, footprintBounds, type PreviewImage } from "../lib/browse";
+import { startPreview, stateFor, type PreviewState } from "../lib/previewRequest";
 import { geometries, placeStats, timeline } from "../lib/catalogStats";
 import { ladder, sameGeometry, trustLabels, type Trust } from "../lib/evidence";
 import { presets, themeGuide, COUNTS_DATE, type Preset } from "../lib/presets";
@@ -41,59 +42,49 @@ export function StatusLadder({ level, trust }: { level: 1 | 2 | 3 | 4; trust?: T
   );
 }
 
-export type PreviewState =
-  | { status: "idle" }
-  | { status: "loading"; progress: number; thumb?: PreviewImage }
-  | { status: "ready"; image: PreviewImage }
-  | { status: "error"; message: string };
+export type { PreviewState };
+
+/** Key of the image a view wants: product, image choice and retry attempt. */
+export function previewKey(product: Product | undefined, choice: string, attempt = 0) {
+  if (!product || product.cached_pair) return "";
+  const options = previewChoices(product),
+    pick = options.find((o) => o.id === choice) ?? options[0];
+  return pick && footprintBounds(product) ? `${product.id}|${pick.id}|${attempt}` : "";
+}
 
 /**
  * NASA preview for a product: the 100 px thumbnail first (instant), then the
- * full image with download progress. Failures leave the footprint and the
- * report card in place; `retry` tries again.
+ * full image with download progress. When the product, data type or
+ * polarization changes, the previous image is dropped at once and its download
+ * cancelled; results of earlier requests are ignored. After 20 seconds the
+ * request stops with an error and `retry` tries again. Failures leave the
+ * footprint and the report card in place.
  */
 export function usePreview(product: Product | undefined, choice: string) {
-  const [state, setState] = useState<PreviewState>({ status: "idle" });
   const [attempt, setAttempt] = useState(0);
-  // While another image of the same product loads (a polarization switch), keep
-  // the current one on the map instead of a blank footprint.
-  const last = useRef<{ product?: string; image?: PreviewImage }>({});
-  if (state.status === "ready") last.current = { product: product?.id, image: state.image };
+  const key = previewKey(product, choice, attempt);
+  const [raw, setState] = useState<PreviewState>({ status: "idle", key: "" });
   useEffect(() => {
-    if (!product || product.cached_pair) return setState({ status: "idle" });
-    const bounds = footprintBounds(product),
+    if (!key || !product) return;
+    const bounds = footprintBounds(product)!,
       options = previewChoices(product),
       pick = options.find((o) => o.id === choice) ?? options[0];
-    if (!bounds || !pick) return setState({ status: "idle" });
-    let live = true;
-    setState({
-      status: "loading",
-      progress: 0,
-      thumb: last.current.product === product.id ? last.current.image : undefined,
-    });
-    if (product.browse.thumbnail && pick.id === "combined")
-      loadPreview(product.browse.thumbnail, bounds, false)
-        .then((thumb) => live && setState((s) => (s.status === "loading" && !s.thumb ? { ...s, thumb } : s)))
-        .catch(() => {});
-    loadPreview(pick.url, bounds, pick.approximate, (progress) =>
-      live && setState((s) => (s.status === "loading" ? { ...s, progress } : s)),
-    )
-      .then((image) => live && setState({ status: "ready", image }))
-      .catch(
-        (e: Error) =>
-          live &&
-          setState({
-            status: "error",
-            message:
-              e instanceof TypeError
-                ? "NASA's image server could not be reached."
-                : e.message || "The preview could not be loaded.",
-          }),
-      );
-    return () => {
-      live = false;
-    };
-  }, [product?.id, choice, attempt]);
+    return startPreview(
+      {
+        key,
+        url: pick.url,
+        approximate: pick.approximate,
+        bounds,
+        thumbnail: pick.id === "combined" ? product.browse.thumbnail : undefined,
+      },
+      setState,
+      loadPreview,
+    );
+  }, [key]);
+  const state = stateFor(raw, key);
+  // Keep the image in memory while it is on screen.
+  const onScreen = state.status === "ready" ? state.image.id : state.status === "loading" ? state.thumb?.id : undefined;
+  useEffect(() => (onScreen ? holdPreview(onScreen) : undefined), [onScreen]);
   return { state, retry: () => setAttempt((n) => n + 1) };
 }
 
@@ -156,30 +147,38 @@ export function PolarizationSwitch({
   );
 }
 
+/** How long play shows each date once its image is ready. */
+export const PLAY_DWELL_MS = 1500;
+
 /** Date slider over one family's products, with play and a compare button. */
 export function TimeScrubber({
   products,
   active,
   onPick,
   onCompare,
+  ready = true,
 }: {
   products: Product[];
   active?: Product;
   onPick: (p: Product) => void;
   onCompare: () => void;
+  /** False while the current date's image is still loading: play waits for it. */
+  ready?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   const index = Math.max(0, products.findIndex((p) => p.id === active?.id));
   const latest = useRef({ index, products, onPick });
   latest.current = { index, products, onPick };
+  // Play shows each date for 1.5 s once its image is on the map, so images are
+  // never requested faster than they arrive.
   useEffect(() => {
-    if (!playing) return;
-    const t = setInterval(() => {
+    if (!playing || !ready) return;
+    const t = setTimeout(() => {
       const { index: i, products: list, onPick: pick } = latest.current;
       pick(list[(i + 1) % list.length]);
-    }, 2500);
-    return () => clearInterval(t);
-  }, [playing]);
+    }, PLAY_DWELL_MS);
+    return () => clearTimeout(t);
+  }, [playing, ready, index]);
   useEffect(() => setPlaying(false), [products]);
   if (products.length < 2) return null;
   const current = products[index];
@@ -220,14 +219,30 @@ export function TimeScrubber({
   );
 }
 
+/** A decoded preview drawn into a canvas (previews are bitmaps, not files). */
+export function BitmapCanvas({ image, ...rest }: { image: PreviewImage } & React.CanvasHTMLAttributes<HTMLCanvasElement>) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    c.width = image.width;
+    c.height = image.height;
+    c.getContext("2d")?.drawImage(image.bitmap, 0, 0);
+    return () => {
+      // Release the canvas copy as soon as the view closes.
+      c.width = c.height = 0;
+    };
+  }, [image.id]);
+  return <canvas ref={ref} aria-hidden="true" {...rest} />;
+}
+
 /** One image placed in a shared geographic frame (CSS percentages). */
 function Placed({ image, frame }: { image: PreviewImage; frame: [number, number, number, number] }) {
   const [w, s, e, n] = frame,
     [[left, top], , [right, bottom]] = image.coordinates;
   return (
-    <img
-      src={image.url}
-      alt=""
+    <BitmapCanvas
+      image={image}
       style={{
         left: `${((left - w) / (e - w)) * 100}%`,
         width: `${((right - left) / (e - w)) * 100}%`,

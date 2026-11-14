@@ -2002,7 +2002,8 @@
   position: absolute;
   inset: 0;
 }
-.swipe-layer img {
+.swipe-layer img,
+.swipe-layer canvas {
   position: absolute;
   image-rendering: auto;
 }
@@ -2229,4 +2230,22 @@
   .time-scrubber label > span {
     font-size: 0.66rem;
   }
+}
+
+/* Review 3: preview loading state. */
+.map-ribbon.loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #101b2be8;
+  border-color: #9fb3c888;
+  color: #dbe6f2;
+}
+.preview-status {
+  flex-wrap: wrap;
+}
+.preview-status small {
+  flex-basis: 100%;
+  color: #a5bacb;
+  font-size: var(--fs-xs);
 }

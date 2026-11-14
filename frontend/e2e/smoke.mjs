@@ -296,13 +296,33 @@ try {
     await page.locator(".map-result-panel h2", { hasText: "27 September 2026" }).waitFor();
     // Compare two dates: the divider works from the keyboard.
     await page.getByRole("button", { name: /Compare two dates/ }).click();
-    await page.waitForFunction(() => document.querySelectorAll(".swipe-layer img").length === 2);
+    await page.waitForFunction(() => document.querySelectorAll(".swipe-layer canvas").length === 2);
     const divider = page.locator(".swipe-stage input[type=range]");
     await divider.focus();
     await page.keyboard.press("ArrowLeft");
     assert.equal(await divider.inputValue(), "49");
     await page.keyboard.press("Escape");
     await page.screenshot({ path: join(out, "explorer-preview.png") });
+  });
+
+  await check("switching data type drops the old image at once and names the one loading", async () => {
+    await page.goto(origin + base + "explore/?preset=pantanal&type=GUNW");
+    await page.locator(".map-ribbon.preview", { hasText: "GROUND MOTION" }).waitFor({ timeout: 15000 });
+    // Hold every backscatter image for 3 s, so the switch is caught mid-load.
+    let release;
+    const gate = new Promise((ok) => (release = ok));
+    await page.route(/TEST_GCOV/, async (route) => {
+      await gate;
+      route.fulfill({ contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PREVIEW });
+    });
+    await page.locator(".kind-switch button", { hasText: "Backscatter" }).click();
+    await page.locator(".map-ribbon.loading", { hasText: "BACKSCATTER" }).waitFor();
+    assert.equal(await page.locator(".map-ribbon.preview").count(), 0, "the ground-motion image is still labelled on the map");
+    await page.locator(".map-result-panel .preview-status", { hasText: "Backscatter" }).waitFor();
+    release();
+    await page.locator(".map-ribbon.preview", { hasText: "BACKSCATTER" }).waitFor({ timeout: 15000 });
+    assert.equal(await page.locator(".map-ribbon.loading").count(), 0);
+    await page.unroute(/TEST_GCOV/);
   });
 
   await check("when NASA's image server fails, the footprint and report card remain", async () => {

@@ -31,7 +31,10 @@ import type {
 } from "../lib/types";
 export interface Overlay {
   key: string;
-  url: string;
+  /** Image file to fetch (processed measurement grids). */
+  url?: string;
+  /** Already-decoded picture (NASA previews), drawn without fetching or decoding again. */
+  image?: ImageBitmap;
   coordinates: Position[];
   /** Smooth resampling for photographs (NASA previews); measurement grids stay crisp. */
   smooth?: boolean;
@@ -647,18 +650,14 @@ export default function MapViewer(props: Props) {
       "visibility",
       overlay.outline === false ? "none" : "visible",
     );
+    const content = overlay.image ? { image: overlay.image } : { url: overlay.url! };
     if (m.getSource("measurement")) {
-      (m.getSource("measurement") as ImageSource).updateImage({
-        url: overlay.url,
-        coordinates: coords,
-      });
+      (m.getSource("measurement") as ImageSource).updateImage({ ...content, coordinates: coords });
       m.setLayoutProperty("measurement", "visibility", "visible");
     } else {
-      m.addSource("measurement", {
-        type: "image",
-        url: overlay.url,
-        coordinates: coords,
-      });
+      // Created empty, then filled, so a bitmap and a URL take the same path.
+      m.addSource("measurement", { type: "image", coordinates: coords });
+      (m.getSource("measurement") as ImageSource).updateImage({ ...content, coordinates: coords });
       m.addLayer(
         {
           id: "measurement",
@@ -676,7 +675,7 @@ export default function MapViewer(props: Props) {
     }
     m.setPaintProperty("measurement", "raster-opacity", props.opacity ?? 0.85);
     m.setPaintProperty("measurement", "raster-resampling", overlay.smooth ? "linear" : "nearest");
-  }, [props.overlay?.key, props.overlay?.url, props.opacity, ready]);
+  }, [props.overlay?.key, props.overlay?.url, props.overlay?.image, props.opacity, ready]);
   const markerKey = (props.markers ?? []).map((k) => k.id).join("|");
   useEffect(() => {
     const m = map.current;

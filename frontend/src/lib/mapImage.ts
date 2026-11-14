@@ -129,9 +129,7 @@ export async function previewImage(
   place: string,
   level: number,
 ): Promise<HTMLCanvasElement> {
-  const img = new Image();
-  img.src = image.url;
-  await img.decode();
+  const img = image.bitmap;
   const W = 1400,
     M = 56,
     box = 900,

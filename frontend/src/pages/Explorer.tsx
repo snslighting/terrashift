@@ -16,6 +16,7 @@ import { presetById, type Preset } from "../lib/presets";
 import { timeline } from "../lib/catalogStats";
 import { footprintBounds, previewChoices } from "../lib/browse";
 import { previewImage, downloadCanvas } from "../lib/mapImage";
+import { PREVIEW_TIMEOUT_MS } from "../lib/previewRequest";
 import type { Basemap } from "../components/MapViewer";
 import {
   Search,
@@ -177,6 +178,10 @@ export default function Explorer() {
   const shown =
     preview.status === "ready" ? preview.image : preview.status === "loading" ? preview.thumb : undefined;
   const level = statusLevel(product, pair);
+  // Which image is on the map, in words: "Backscatter · HV", "Ground motion · Interferogram".
+  const previewLabel = product
+    ? `${kindLabels[product.kind].short} · ${(previewChoices(product).find((o) => o.id === choice) ?? previewChoices(product)[0])?.label ?? ""}`
+    : "";
   // Fit the map to the open product, rounded so scrubbing one track does not jitter the view.
   const productFocus = useMemo(() => {
     const b = product && !pair ? footprintBounds(product) : null;
@@ -193,13 +198,13 @@ export default function Explorer() {
         : shown && product
           ? {
               key: `preview-${product.id}-${choice}`,
-              url: shown.url,
+              image: shown.bitmap,
               coordinates: shown.coordinates,
               smooth: true,
               outline: false,
             }
           : undefined,
-    [pair?.id, active, grids, shown?.url, product?.id, choice],
+    [pair?.id, active, grids, shown?.id, product?.id, choice],
   );
   const markers = useMemo(
     () =>
@@ -906,8 +911,14 @@ export default function Explorer() {
         </Suspense>
         {!pair && product && shown && (
           <div className="map-ribbon preview" role="note">
-            NASA PREVIEW · NOT PROCESSED BY TERRASHIFT
+            NASA PREVIEW{previewLabel ? ` · ${previewLabel.toUpperCase()}` : ""} · NOT PROCESSED BY TERRASHIFT
             {shown.approximate ? " · PLACEMENT APPROXIMATE" : ""}
+            {preview.status === "loading" ? " · LOW DETAIL, LOADING" : ""}
+          </div>
+        )}
+        {!pair && product && !shown && preview.status === "loading" && (
+          <div className="map-ribbon loading" role="status">
+            <RefreshCw size={13} className="spin" /> LOADING NASA PREVIEW{previewLabel ? ` · ${previewLabel.toUpperCase()}` : ""}
           </div>
         )}
         {!pair && product && shown && (
@@ -934,6 +945,7 @@ export default function Explorer() {
             active={product}
             onPick={selectProduct}
             onCompare={() => product && setComparing(true)}
+            ready={preview.status !== "loading"}
           />
         )}
         {comparing && product && (
@@ -1088,13 +1100,21 @@ export default function Explorer() {
                       <StatusLadder level={level} />
                       {preview.status === "loading" && (
                         <p className="preview-status" role="status">
-                          <RefreshCw size={14} className="spin" /> Loading NASA's preview image…{" "}
-                          {preview.progress > 0 && `${Math.round(preview.progress * 100)}%`}
+                          <RefreshCw size={14} className="spin" /> Loading NASA's preview image
+                          {previewLabel ? ` (${previewLabel})` : ""}…{" "}
+                          {preview.total > 0 &&
+                            `${(preview.loaded / 1e6).toFixed(1)} of ${(preview.total / 1e6).toFixed(1)} MB`}
+                          <small>
+                            {preview.thumb
+                              ? "A low-detail version is shown until it arrives."
+                              : "The map shows only the footprint until it arrives."}{" "}
+                            We stop waiting after {PREVIEW_TIMEOUT_MS / 1000} seconds.
+                          </small>
                         </p>
                       )}
                       {preview.status === "error" && (
                         <div className="warning compact" role="alert">
-                          <strong>Preview unavailable.</strong>
+                          <strong>{preview.timedOut ? "Preview took too long." : "Preview unavailable."}</strong>
                           <p>
                             {preview.message} The footprint outline and the place report still show
                             what NISAR covered.

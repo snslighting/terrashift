@@ -151,8 +151,14 @@ export function maskNoData(rgba: Uint8ClampedArray, width: number, height: numbe
 }
 
 export interface PreviewImage {
-  /** blob: URL of the masked PNG. */
-  url: string;
+  /** Unique id of this prepared image (used to keep it in memory while shown). */
+  id: string;
+  /**
+   * The masked picture, already decoded. It goes to the map as is: no PNG
+   * re-encoding (measured at about 2 s for a 2037 x 2012 preview) and no
+   * second decode.
+   */
+  bitmap: ImageBitmap;
   coordinates: Position[];
   width: number;
   height: number;
@@ -160,71 +166,244 @@ export interface PreviewImage {
   approximate: boolean;
 }
 
-const MAX_SIDE = 2048;
-const done = new Map<string, Promise<PreviewImage>>();
+/** Longest side, in pixels, of a preview placed on the map. Larger images are scaled down. */
+export const MAX_SIDE = 2048;
+/** At most this many prepared previews are kept in memory (images on screen are never dropped). */
+export const MAX_CACHED = 4;
 
-async function fetchBytes(url: string, onProgress?: (fraction: number) => void, signal?: AbortSignal) {
+/** Size to draw an image at: the long side is at most `max` pixels and the aspect ratio is kept. */
+export function fitSize(width: number, height: number, max = MAX_SIDE) {
+  const scale = Math.min(1, max / Math.max(width, height));
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)), scale };
+}
+
+/** Width and height from a PNG file's header, without decoding the picture. */
+export function pngSize(head: Uint8Array): { width: number; height: number } | null {
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (head.length < 24 || sig.some((v, i) => head[i] !== v)) return null;
+  // Chunk type at bytes 12-15 must be IHDR; width and height follow, big-endian.
+  if (String.fromCharCode(...head.slice(12, 16)) !== "IHDR") return null;
+  const view = new DataView(head.buffer, head.byteOffset, 24);
+  return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+/**
+ * Prepared previews, least recently used first. When more than `capacity` are
+ * held, the oldest one that is not on screen (pinned) is dropped and its
+ * bitmap closed, so the browser frees the picture at once.
+ */
+export class PreviewCache {
+  private items = new Map<string, PreviewImage>();
+  private pins = new Map<string, number>();
+  constructor(
+    private capacity = MAX_CACHED,
+    private release: (image: PreviewImage) => void = (image) => image.bitmap.close?.(),
+  ) {}
+  get size() {
+    return this.items.size;
+  }
+  get(key: string) {
+    const hit = this.items.get(key);
+    if (hit) {
+      this.items.delete(key);
+      this.items.set(key, hit);
+    }
+    return hit;
+  }
+  set(key: string, image: PreviewImage) {
+    const old = this.items.get(key);
+    if (old && old.id !== image.id) this.release(old);
+    this.items.delete(key);
+    this.items.set(key, image);
+    this.trim();
+  }
+  /** Keep an image while it is on screen; call the returned function when it leaves. */
+  pin(id: string) {
+    this.pins.set(id, (this.pins.get(id) ?? 0) + 1);
+    let held = true;
+    return () => {
+      if (!held) return;
+      held = false;
+      const n = (this.pins.get(id) ?? 1) - 1;
+      if (n > 0) this.pins.set(id, n);
+      else this.pins.delete(id);
+      this.trim();
+    };
+  }
+  private trim() {
+    // The newest entry is about to be shown, so it is never the one dropped.
+    const newest = [...this.items.keys()].at(-1);
+    for (const [key, image] of this.items) {
+      if (this.items.size <= this.capacity) return;
+      if (key === newest || this.pins.has(image.id)) continue;
+      this.items.delete(key);
+      this.release(image);
+    }
+  }
+}
+
+export type Progress = (fraction: number, loaded: number, total: number) => void;
+export type Prepare = (url: string, bounds: BBox, approximate: boolean, signal: AbortSignal, onProgress: Progress) => Promise<PreviewImage>;
+
+const abortError = (signal: AbortSignal) =>
+  signal.reason instanceof Error ? signal.reason : new DOMException("The preview request was cancelled.", "AbortError");
+
+/**
+ * A preview loader: one download per image even when several views ask for it
+ * (the map and the compare dialog), cancelled as soon as no view wants it any
+ * more, and finished images kept in a small cache.
+ */
+export function createPreviewLoader(prepare: Prepare, cache = new PreviewCache()) {
+  const inflight = new Map<
+    string,
+    { promise: Promise<PreviewImage>; controller: AbortController; users: number; listeners: Set<Progress> }
+  >();
+  function load(
+    url: string,
+    bounds: BBox,
+    approximate: boolean,
+    options: { onProgress?: Progress; signal?: AbortSignal } = {},
+  ): Promise<PreviewImage> {
+    const { onProgress, signal } = options;
+    if (signal?.aborted) return Promise.reject(abortError(signal));
+    const hit = cache.get(url);
+    if (hit) return Promise.resolve(hit);
+    let job = inflight.get(url);
+    if (!job) {
+      const controller = new AbortController(),
+        listeners = new Set<Progress>();
+      const created = {
+        controller,
+        users: 0,
+        listeners,
+        promise: prepare(url, bounds, approximate, controller.signal, (f, l, t) => listeners.forEach((fn) => fn(f, l, t))),
+      };
+      created.promise.then(
+        (image) => {
+          if (inflight.get(url) === created) inflight.delete(url);
+          cache.set(url, image);
+        },
+        () => {
+          if (inflight.get(url) === created) inflight.delete(url);
+        },
+      );
+      inflight.set(url, created);
+      job = created;
+    }
+    const current = job;
+    current.users++;
+    if (onProgress) current.listeners.add(onProgress);
+    let left = false;
+    const leave = () => {
+      if (left) return;
+      left = true;
+      current.users--;
+      if (onProgress) current.listeners.delete(onProgress);
+      if (current.users <= 0 && inflight.get(url) === current) {
+        inflight.delete(url);
+        current.controller.abort(signal?.reason);
+      }
+    };
+    return new Promise<PreviewImage>((ok, fail) => {
+      const onAbort = () => {
+        leave();
+        fail(abortError(signal!));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      current.promise.then(
+        (image) => {
+          signal?.removeEventListener("abort", onAbort);
+          leave();
+          ok(image);
+        },
+        (error) => {
+          signal?.removeEventListener("abort", onAbort);
+          leave();
+          fail(error);
+        },
+      );
+    });
+  }
+  return { load, cache, inflight: () => inflight.size };
+}
+
+/** Download with progress, reported at most every 5% so the page is not re-drawn for every chunk. */
+async function fetchBytes(url: string, signal: AbortSignal, onProgress: Progress) {
   const response = await fetch(url, { signal, mode: "cors" });
   if (!response.ok) throw Error(`NASA's image server returned ${response.status}.`);
   const total = Number(response.headers.get("content-length")) || 0;
-  if (!response.body || !total || !onProgress) return response.blob();
+  if (!response.body || !total) return response.blob();
   const reader = response.body.getReader(),
     parts: Uint8Array[] = [];
-  let got = 0;
+  let got = 0,
+    reported = 0;
   for (;;) {
     const { done: end, value } = await reader.read();
     if (end) break;
     parts.push(value);
     got += value.length;
-    onProgress(Math.min(1, got / total));
+    const fraction = Math.min(1, got / total);
+    if (fraction - reported >= 0.05 || fraction === 1) {
+      reported = fraction;
+      onProgress(fraction, got, total);
+    }
   }
   return new Blob(parts as BlobPart[], { type: "image/png" });
 }
 
 /**
- * Download, mask and place one preview image. Results are cached per URL, so
- * scrubbing back and forth does not download again.
+ * Download, scale, mask and place one preview in the browser. The image is
+ * decoded straight to at most MAX_SIDE pixels on its long side, and the work
+ * stops between steps once the request is cancelled.
  */
-export function loadPreview(
-  url: string,
-  bounds: BBox,
-  approximate: boolean,
-  onProgress?: (fraction: number) => void,
-): Promise<PreviewImage> {
-  let pending = done.get(url);
-  if (!pending) {
-    pending = (async () => {
-      const blob = await fetchBytes(url, onProgress);
-      const bitmap = await createImageBitmap(blob);
-      const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height)),
-        width = Math.round(bitmap.width * scale),
-        height = Math.round(bitmap.height * scale),
-        canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const g = canvas.getContext("2d", { willReadFrequently: true })!;
-      g.drawImage(bitmap, 0, 0, width, height);
-      bitmap.close?.();
-      const data = g.getImageData(0, 0, width, height),
-        extent = maskNoData(data.data, width, height);
-      if (!extent) throw Error("This preview image is empty.");
-      g.putImageData(data, 0, 0);
-      const out = await new Promise<Blob>((ok, fail) =>
-        canvas.toBlob((b) => (b ? ok(b) : fail(Error("Could not prepare the image."))), "image/png"),
-      );
-      return {
-        url: URL.createObjectURL(out),
-        coordinates: placeImage(extent, width, height, bounds),
-        width,
-        height,
-        approximate,
-      };
-    })();
-    pending.catch(() => done.delete(url));
-    done.set(url, pending);
+let serial = 0;
+const prepareInBrowser: Prepare = async (url, bounds, approximate, signal, onProgress) => {
+  const blob = await fetchBytes(url, signal, onProgress);
+  signal.throwIfAborted();
+  const size = pngSize(new Uint8Array(await blob.slice(0, 24).arrayBuffer()));
+  const target = size ? fitSize(size.width, size.height) : null;
+  const bitmap =
+    target && target.scale < 1
+      ? await createImageBitmap(blob, { resizeWidth: target.width, resizeHeight: target.height, resizeQuality: "high" })
+      : await createImageBitmap(blob);
+  try {
+    signal.throwIfAborted();
+    // Fallback for a missing header or a browser that ignores the resize options.
+    const { width, height } = fitSize(bitmap.width, bitmap.height),
+      canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const g = canvas.getContext("2d", { willReadFrequently: true })!;
+    g.drawImage(bitmap, 0, 0, width, height);
+    const data = g.getImageData(0, 0, width, height),
+      extent = maskNoData(data.data, width, height);
+    if (!extent) throw Error("This preview image is empty.");
+    signal.throwIfAborted();
+    const masked = await createImageBitmap(data);
+    // Free the canvas memory now rather than at the next garbage collection.
+    canvas.width = canvas.height = 0;
+    if (signal.aborted) {
+      masked.close();
+      signal.throwIfAborted();
+    }
+    return {
+      id: `${url}#${++serial}`,
+      bitmap: masked,
+      coordinates: placeImage(extent, width, height, bounds),
+      width,
+      height,
+      approximate,
+    };
+  } finally {
+    bitmap.close?.();
   }
-  return pending;
-}
+};
+
+const browserLoader = createPreviewLoader(prepareInBrowser);
+/** Load one NASA preview (shared, cancellable, cached). */
+export const loadPreview = browserLoader.load;
+/** Keep a preview in memory while it is on screen. */
+export const holdPreview = (id: string) => browserLoader.cache.pin(id);
 
 /** Image choices for a product: the combined composite, then each frequency/polarization. */
 export function previewChoices(product: Product) {
