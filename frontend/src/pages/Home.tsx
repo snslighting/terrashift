@@ -141,7 +141,7 @@ export default function Home() {
             <Button to="/explore" secondary>
               Explore anywhere
             </Button>
-            <button className="text-button hero-demo" onClick={() => tour.start(true)}>
+            <button className="text-button hero-demo" onClick={() => tour.start(true, "demo")}>
               <PlayCircle size={17} />
               Watch the 90-second demo
             </button>

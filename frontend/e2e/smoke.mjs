@@ -141,13 +141,13 @@ const check = async (name, fn) => {
     console.log("PASS", name);
   } catch (error) {
     failures.push(name);
-    console.error("FAIL", name, "\n ", error.message.split("\n").slice(0, 4).join("\n  "));
+    console.error("FAIL", name, "\n ", error.message.split("\n").slice(0, process.env.SMOKE_VERBOSE ? 30 : 4).join("\n  "));
   }
 };
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 950 }, acceptDownloads: true });
   // Keep the test hermetic: third-party tiles, geocoder and catalog calls are stubbed.
-  await context.route(/^https:\/\/(?!127\.0\.0\.1)/, (route) => {
+  const stub = (route) => {
     const u = route.request().url();
     if (u.includes("cmr.earthdata.nasa.gov")) {
       // Only the sample-place checks below search Pantanal; everything else gets an empty catalog.
@@ -159,7 +159,8 @@ try {
         ? route.fulfill({ status: 404, body: "" })
         : route.fulfill({ contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: PREVIEW });
     return route.fulfill({ status: 204, body: "" });
-  });
+  };
+  await context.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -331,6 +332,8 @@ try {
     await page.keyboard.press("ArrowLeft");
     assert.equal(await divider.inputValue(), "49");
     await page.keyboard.press("Escape");
+    // Focus goes back to the button that opened the dialog.
+    assert.match(await page.evaluate(() => document.activeElement?.textContent ?? ""), /Compare two dates/);
     await page.screenshot({ path: join(out, "explorer-preview.png") });
   });
 
@@ -391,6 +394,49 @@ try {
     await page.locator(".map-result-panel").getByRole("button", { name: "Retry" }).waitFor();
   });
 
+  await check("90-second demo: place, product, date slider, HH/HV, processed story, claims", async () => {
+    await page.goto(origin + base);
+    await page.getByRole("button", { name: /Watch the 90-second demo/ }).click();
+    const card = page.locator(".tour-card");
+    await card.getByText("90-SECOND DEMO · 1 / 6").waitFor();
+    await page.locator("#tour-title", { hasText: "Pick a place" }).waitFor();
+    assert.match(page.url(), /preset=pantanal/);
+    await page.locator(".place-card").waitFor({ timeout: 15000 });
+    await card.getByRole("button", { name: "Next" }).click();
+    await page.locator("#tour-title", { hasText: "Open a product" }).waitFor();
+    await page.locator(".map-ribbon.preview").waitFor({ timeout: 15000 });
+    // The preview has a "How to read this" legend.
+    await page.locator(".preview-legend", { hasText: "HOW TO READ THIS" }).waitFor();
+    await card.getByRole("button", { name: "Next" }).click();
+    await page.locator("#tour-title", { hasText: "Move through time" }).waitFor();
+    // The demo moves the slider itself, to the first date.
+    await page.locator(".map-result-panel h2", { hasText: "27 September 2026" }).waitFor({ timeout: 10000 });
+    await card.getByRole("button", { name: "Next" }).click();
+    await page.locator("#tour-title", { hasText: "Switch HH and HV" }).waitFor();
+    await page.waitForFunction(() => /image=A_HV/.test(location.search), null, { timeout: 10000 });
+    await page.locator(".preview-legend", { hasText: "stronger HV echo" }).waitFor();
+    await card.getByRole("button", { name: "Next" }).click();
+    await page.locator("#tour-title", { hasText: "Open a processed story" }).waitFor();
+    assert.match(page.url(), /discoveries/);
+    await card.getByRole("button", { name: "Next" }).click();
+    await page.locator("#tour-title", { hasText: "What we can and cannot claim" }).waitFor();
+    await page.locator(".claims-box").waitFor();
+    await page.locator(".tour-spotlight").waitFor();
+    await card.getByRole("button", { name: "Finish" }).click();
+    assert.equal(await page.locator(".tour-card").count(), 0);
+  });
+
+  await check("about page: challenge fit and what we can and cannot claim, from the catalog", async () => {
+    await page.goto(origin + base + "about/");
+    await page.locator(".challenge-fit tbody tr").first().waitFor();
+    const needs = await page.locator(".challenge-fit tbody th").allInnerTexts();
+    for (const need of ["Study areas", "Physical drivers", "Polarizations", "Ancillary data", "Time series", "Future applications", "Open source"])
+      assert.ok(needs.includes(need), `missing ${need}`);
+    const cannot = await page.locator(".claims-columns > div").nth(1).innerText();
+    assert.match(cannot, /28\.4 mm and 51\.1 mm RMS/);
+    assert.match(cannot, /hypotheses, not findings/);
+  });
+
   await check("phone width: no sideways scrolling and the map stays visible", async () => {
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
     await phone.route(/^https:\/\/(?!127\.0\.0\.1)/, (route) => route.fulfill({ status: 204, body: "" }));
@@ -410,6 +456,30 @@ try {
     const panel = await p.locator(".map-result-panel").boundingBox();
     assert.ok(panel.height < map.height * 0.6, "result panel covers most of the map");
     await p.screenshot({ path: join(out, "phone-explorer.png") });
+    await phone.close();
+  });
+
+  await check("phone: a sample place, a reachable map, and touch targets of 24 px or more", async () => {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await phone.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
+    const p = await phone.newPage();
+    p.on("pageerror", (e) => errors.push(e.message));
+    await p.goto(origin + base + "explore/?preset=pantanal");
+    await p.locator(".map-ribbon.preview").waitFor({ timeout: 15000 });
+    assert.ok((await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, "sideways scroll");
+    const small = await p.evaluate(() =>
+      [...document.querySelectorAll(".explorer-page button, .explorer-page a, .explorer-page input, .explorer-page summary")]
+        .filter((e) => {
+          const r = e.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && (r.width < 24 || r.height < 24) && !e.closest(".acq-calendar");
+        })
+        .map((e) => (e.getAttribute("aria-label") || e.textContent || e.tagName).trim().slice(0, 30)),
+    );
+    assert.deepEqual(small, [], `targets under 24 px: ${small.join(", ")}`);
+    await p.getByRole("button", { name: "Show the map" }).click();
+    // Smooth scrolling takes a moment: wait for the map to arrive near the top.
+    await p.waitForFunction(() => document.querySelector(".map-canvas").getBoundingClientRect().top < 400, null, { timeout: 5000 });
+    await p.screenshot({ path: join(out, "phone-explorer-preview.png") });
     await phone.close();
   });
 

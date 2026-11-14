@@ -30,8 +30,8 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 | Use real NISAR data | Real NISAR L2 GUNW products, checksum-verified, with live NASA CMR discovery of GUNW and GCOV products; NASA's own preview image of every product found is placed on the map |
 | Changes at locations around the world | Processed: farming (California), earthquakes (Venezuela, Indonesia), subsidence (California). NASA previews anywhere NISAR has looked, with 23 one-click sample places (wetlands, fire, farming, volcanoes, ice, sinking cities). Floods, wetlands and wildfire are not yet processed by TerraShift |
 | Time series from different dates | Four processed 12-day pairs across three areas; for any place, a date slider with play, a same-track swipe compare and an acquisition calendar over every product found; GNSS time series at stations |
-| Which polarizations highlight which change | HH and HV previews (both L-band frequencies, A and B) switchable for every GCOV product, with a short reading guide. Measured HH/HV change still needs a processed GCOV case |
-| Optical imagery or GIS context | "Optical on this date" basemap (NASA GIBS MODIS true colour for the product's date), satellite and terrain basemaps, country outlines, GNSS stations and USGS epicentres |
+| Which polarizations highlight which change | HH and HV previews (both L-band frequencies, A and B) switchable for every GCOV product, with a reading guide and a colour legend. Measured HH/HV change still needs a processed GCOV case: the Pantanal case is prepared ([docs/GCOV_AND_CONTROL_CASES.md](docs/GCOV_AND_CONTROL_CASES.md)), not run |
+| Optical imagery or GIS context | "Optical on this date" basemap (NASA GIBS MODIS true colour for the product's date; says so when GIBS has no image of that day), satellite and terrain basemaps, country outlines, GNSS stations and USGS epicentres |
 | Hypothesize the physical drivers | "Likely drivers" per Earth Story, stated as hypotheses with the evidence for and against |
 | Future applications of NISAR | "What NISAR could do next" section on the Earth Stories page |
 | Compelling storytelling, interactive summary | Earth Stories (where, what the radar saw, likely drivers, how sure we are, why it matters) and shareable Analysis links |
@@ -39,7 +39,7 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 
 ## Features
 
-- Seven pages: interactive 3D Earth, worldwide explorer, analysis workspace, Earth Stories, science explainer, data & methodology, about.
+- Eight pages: interactive 3D Earth, worldwide explorer, analysis workspace, Earth Stories, science explainer, data & methodology, Learn (official challenge resources by theme, other SAR sources), about (challenge fit and "what we can and cannot claim").
 - Worldwide place search (Photon/OpenStreetMap) or coordinates, rectangle/polygon areas, dateline handling, live NASA CMR discovery of GUNW and GCOV products with real footprints.
 - Every product found opens: NASA's preview image is placed on the map (thumbnail first), with HH / HV / frequency switches for GCOV, a place report card, an acquisition calendar, a date slider with play and a same-track, same-frame swipe compare. A four-level status ladder (catalog record, NASA preview, processed by TerraShift, checked against GNSS) says what each picture is.
 - Discovery views are shareable (area, data type, product and image in the URL), with a product-list CSV and a labelled preview PNG.
@@ -48,7 +48,8 @@ How TerraShift answers each part of the Dancing with the SARs challenge, includi
 - Earth Stories in five steps (where and why, what the radar saw, likely drivers as hypotheses, how sure we are, why it matters), with the map following each step, plus future NISAR applications.
 - Shareable Analysis views: case, pair, layer and comparison mode live in the URL ("Copy link").
 - Works offline or on strict hosts: bundled country outlines replace unreachable basemap tiles; if NASA's catalog or the place search cannot be reached, the Explorer falls back to built-in places and the processed products stored with the site, clearly labelled.
-- Guided tour across all pages (header "Tour" button), with a 90-second auto-playing demo for presentations.
+- Guided tour across all pages (header "Tour" button), and a 90-second demo that drives the Explorer: a sample place, NASA's preview, the date slider, HH/HV, a processed Earth Story, and what we can and cannot claim.
+- Every NASA preview has a "How to read this" legend and a "Get the full data" panel (Earthdata Search, ASF Vertex, the NISAR Data User Guide; downloads need the user's own Earthdata login).
 - Analysis: key takeaway, section menu, area statistics for a drawn rectangle or polygon, map image (PNG) export and a copyable citation.
 - Maps show a scale bar and a plain-language reading under the cursor; focus a map and use the arrow keys and Enter to inspect without a mouse.
 - `node scripts/hosted.mjs <dir>` (in `frontend/`) builds a single-page copy for hosts that serve only standard web file types.

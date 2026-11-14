@@ -153,6 +153,66 @@ export function PolarizationSwitch({
 /** How long play shows each date once its image is ready. */
 export const PLAY_DWELL_MS = 1500;
 
+/**
+ * "How to read this" for a NASA preview on the map. Colour meanings are general radar
+ * behaviour, labelled as hypotheses; the composite's colour scheme was measured by TerraShift
+ * (red and blue follow HH, green follows HV: correlation 0.84 to 0.92 on two GCOV products,
+ * 14 November 2026), not read from NASA's specification.
+ */
+export function PreviewLegend({
+  product,
+  choice,
+  children,
+}: {
+  product: Product;
+  choice: string;
+  /** Controls for the image (opacity), shown under the reading guide. */
+  children?: React.ReactNode;
+}) {
+  const pick = previewChoices(product).find((o) => o.id === choice) ?? previewChoices(product)[0];
+  const swatch = (color: string, text: string) => (
+    <li>
+      <i style={{ background: color }} aria-hidden="true" /> {text}
+    </li>
+  );
+  return (
+    <div className="legend preview-legend">
+      <div className="legend-heading">
+        HOW TO READ THIS
+        <span>{pick ? pick.label : kindLabels[product.kind].short}</span>
+      </div>
+      {product.kind === "GUNW" ? (
+        <ul>
+          {swatch("conic-gradient(#f55,#fd5,#5f8,#5cf,#a6f,#f55)", "One full colour cycle: about 12 cm of motion toward or away from the satellite")}
+          {swatch("repeating-linear-gradient(45deg,#777 0 2px,#333 2px 4px)", "Grainy: the ground changed too much to compare (coherence lost)")}
+        </ul>
+      ) : pick?.id === "combined" ? (
+        <ul>
+          {swatch("#d24bd2", "Magenta: HH stronger than HV")}
+          {swatch("#3fbf4f", "Green: HV stronger than HH")}
+          {swatch("#eeeeee", "White: both strong")}
+          {swatch("#151515", "Dark: both weak")}
+        </ul>
+      ) : (
+        <ul>
+          {swatch("linear-gradient(90deg,#111,#eee)", `Darker to brighter: weaker to stronger ${pick?.label.split(" ")[0] ?? ""} echo`)}
+        </ul>
+      )}
+      <p>
+        <span className="hypothesis-tag">General hypothesis</span>
+        {product.kind === "GUNW"
+          ? "Tight bands near a fault or volcano can mean ground motion; broad smooth bands are often atmosphere."
+          : "Calm water is dark. Forests are bright in HV. Flooded vegetation and buildings are bright in HH."}
+      </p>
+      <p className="tiny">
+        NASA's preview, not a TerraShift measurement. Placement approximate (about 1 to 2 km).
+        {product.kind === "GCOV" && pick?.id === "combined" && " Colour scheme measured by TerraShift: red and blue follow HH, green follows HV."}
+      </p>
+      {children}
+    </div>
+  );
+}
+
 /** Date slider over one family's products, with play and a compare button. */
 export function TimeScrubber({
   products,
@@ -281,10 +341,15 @@ export function SwipeCompare({
     B = usePreview(b, choice),
     dialog = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Focus moves into the dialog, and back to what opened it when it closes.
+    const opener = document.activeElement as HTMLElement | null;
     dialog.current?.focus();
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", key);
-    return () => document.removeEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("keydown", key);
+      opener?.focus?.();
+    };
   }, []);
   const imgA = A.state.status === "ready" ? A.state.image : undefined,
     imgB = B.state.status === "ready" ? B.state.image : undefined;

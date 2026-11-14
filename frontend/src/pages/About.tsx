@@ -1,3 +1,5 @@
+import { ClaimsBox } from "../components/Claims";
+import { ChallengeFit } from "../components/ChallengeFit";
 import { ArrowUpRight, Orbit, Globe2, ShieldCheck, Code2 } from "lucide-react";
 import {
   PageIntro,
@@ -69,6 +71,8 @@ export default function About() {
           </Reveal>
         ))}
       </div>
+      <ChallengeFit />
+      <ClaimsBox />
       <section className="about-roadmap">
         <Eyebrow>BUILT, AND STILL BUILDING</Eyebrow>
         <h2>A clear path forward.</h2>
@@ -91,8 +95,10 @@ export default function About() {
             <p>
               <code>scripts/acquire.py</code> downloads and processes the next
               California pairs (a three-month subsidence timeline), a Flores
-              sensitivity run, and before/after NISAR GCOV backscatter for
-              flood and fire areas. The site picks up each new study area
+              sensitivity run, a Pantanal wetland case in HH and HV, and a
+              quiet-period control pair next to each earthquake. The cases are
+              chosen and checked against NASA's catalog; processing needs an
+              Earthdata login. The site picks up each new study area
               automatically once processed.
             </p>
           </div>

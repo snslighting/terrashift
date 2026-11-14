@@ -2456,3 +2456,243 @@
     bottom: 246px;
   }
 }
+.preview-legend ul {
+  display: grid;
+  gap: 5px;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+  color: #c9d8e6;
+}
+.preview-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.preview-legend li i {
+  flex: none;
+  width: 18px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid #ffffff33;
+}
+.preview-legend p {
+  margin: 6px 0 0;
+  font-size: var(--fs-xs);
+}
+.claims-box {
+  margin: 0 0 64px;
+  padding: 24px;
+  border: 1px solid #55d9f344;
+  border-radius: var(--radius);
+  background: #0b1526cc;
+}
+.claims-box h2 {
+  margin: 0 0 16px;
+  font-size: var(--fs-xl);
+}
+.claims-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 24px;
+}
+.claims-columns h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-md);
+}
+.claims-columns ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+.claims-columns li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+}
+.claims-columns li svg {
+  margin-top: 3px;
+  color: #8fe3b0;
+}
+.claims-columns div:last-child li svg {
+  color: #ff8a7a;
+}
+.challenge-fit {
+  margin: 0 0 48px;
+}
+.challenge-fit h2 {
+  font-size: var(--fs-xl);
+  margin: 0 0 14px;
+}
+.challenge-fit table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.challenge-fit th,
+.challenge-fit td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.challenge-fit thead th {
+  color: #8ea3b6;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.challenge-fit a {
+  color: var(--cyan);
+}
+.fit-status {
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+}
+.fit-status.done {
+  color: #8fe3b0;
+  border: 1px solid #8fe3b055;
+}
+.fit-status.partly {
+  color: #efd27e;
+  border: 1px solid #efd27e55;
+}
+@media (max-width: 699px) {
+  .challenge-fit table,
+  .challenge-fit tbody,
+  .challenge-fit tr,
+  .challenge-fit th,
+  .challenge-fit td {
+    display: block;
+  }
+  .challenge-fit thead {
+    display: none;
+  }
+  .challenge-fit tr {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .challenge-fit th,
+  .challenge-fit td {
+    padding: 2px 0;
+    border: 0;
+  }
+}
+
+/* Review 3, item 15: keyboard and phone pass of the Explorer. */
+.search-field input:focus-visible,
+.date-fields input:focus,
+.bounds-form input:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.jump-to-map {
+  display: none;
+}
+@media (min-width: 1100px) {
+  /* Centre the ribbon in the map area left of the result panel, so the two never overlap. */
+  .explorer-map-area .map-ribbon {
+    left: calc((100% - 330px) / 2);
+    max-width: calc(100% - 380px);
+  }
+}
+@media (max-width: 699px), (pointer: coarse) {
+  .explorer-page button,
+  .explorer-page summary,
+  .explorer-page .source-link,
+  .explorer-page .text-button {
+    min-height: 32px;
+  }
+  .explorer-page .source-link {
+    display: inline-flex;
+    align-items: center;
+  }
+  .explorer-page .panel-top button,
+  .explorer-page .selected-place button {
+    min-width: 32px;
+  }
+  .explorer-page input[type="range"] {
+    min-height: 32px;
+  }
+}
+@media (max-width: 699px) {
+  .jump-to-map {
+    display: inline-flex;
+  }
+  /* The map sits below the panel on phones: keep the product list short. */
+  .product-list {
+    max-height: 55vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+@media (max-width: 699px) {
+  /* Phones: the decorative map name gives way to the preview ribbon; the slider sits below it. */
+  .explorer-map-area .map-identity {
+    display: none;
+  }
+  .explorer-map-area .map-ribbon {
+    top: 70px;
+  }
+  .explorer-map-area .time-scrubber {
+    top: 118px;
+  }
+  .time-scrubber small {
+    white-space: nowrap;
+  }
+}
+.time-scrubber small {
+  flex: none;
+}
+@media (max-width: 699px) {
+  .time-scrubber label > span {
+    white-space: normal;
+  }
+}
+.preview-legend .range-label {
+  margin-top: 8px;
+}
+@media (min-width: 1100px) {
+  /* The date slider sits in the gap between the legend (left) and the result panel (right). */
+  .explorer-map-area .time-scrubber {
+    left: calc((100% - 70px) / 2);
+  }
+}
+@media (min-width: 700px) {
+  /* A tall legend scrolls inside itself instead of running under the controls above it. */
+  .explorer-map-area .map-legend.open {
+    max-height: calc(100% - 330px);
+    overflow-y: auto;
+  }
+}
+@media (min-width: 700px) and (max-width: 1099px) {
+  /* Medium screens: ribbon and slider stack at the top, left of the result panel. */
+  .explorer-map-area .map-ribbon,
+  .explorer-map-area .time-scrubber {
+    left: 16px;
+    right: 320px;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+  .explorer-map-area .time-scrubber {
+    top: 214px;
+    bottom: auto;
+    min-width: 0;
+  }
+}
+@media (min-width: 700px) and (max-width: 1099px) {
+  .explorer-map-area .map-legend.open {
+    max-height: calc(100% - 380px);
+  }
+}
+/* The decorative map name steps aside while a status ribbon is shown. */
+.explorer-map-area:has(.map-ribbon) .map-identity {
+  visibility: hidden;
+}

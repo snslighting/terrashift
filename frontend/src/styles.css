@@ -621,7 +621,8 @@ a svg {
   pointer-events: none;
   max-width: 630px;
 }
-.hero-copy a {
+.hero-copy a,
+.hero-copy button {
   pointer-events: auto;
 }
 /* Sized against viewport height too, so headline, subtext and both actions fit

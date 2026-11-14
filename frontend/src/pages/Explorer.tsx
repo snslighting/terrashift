@@ -5,6 +5,7 @@ import {
   PlaceCard,
   PlaceGallery,
   PolarizationSwitch,
+  PreviewLegend,
   StatusLadder,
   SwipeCompare,
   TimeScrubber,
@@ -18,6 +19,7 @@ import { footprintBounds, previewChoices } from "../lib/browse";
 import { previewImage, downloadCanvas } from "../lib/mapImage";
 import { PREVIEW_TIMEOUT_MS } from "../lib/previewRequest";
 import { FullDataPanel } from "../components/Resources";
+import { useTour } from "../components/Tour";
 import { NON_ENDORSEMENT } from "../lib/resources";
 import type { Basemap } from "../components/MapViewer";
 import {
@@ -36,6 +38,7 @@ import {
   PanelLeftOpen,
   ImageDown,
   Sheet,
+  PlayCircle,
 } from "lucide-react";
 import {
   discover,
@@ -112,6 +115,7 @@ function OpticalNote({ date }: { date?: string }) {
 
 export default function Explorer() {
   const { catalog, selection, setSelection, error: researchError } = useApp();
+  const siteTour = useTour();
   const [params, setParams] = useSearchParams(),
     [query, setQuery] = useState(""),
     [places, setPlaces] = useState<Place[]>([]),
@@ -196,6 +200,11 @@ export default function Explorer() {
   // Day of the optical basemap: the radar date (a GUNW's second date), else yesterday.
   const opticalDate = (product?.date ?? pair?.after)?.slice(0, 10);
   // Which image is on the map, in words: "Backscatter · HV", "Ground motion · Interferogram".
+  // Short ribbon label: the data type, and the image when it is one polarization.
+  const pickedImage = product ? (previewChoices(product).find((o) => o.id === choice) ?? previewChoices(product)[0]) : undefined;
+  const previewChoice = product
+    ? `${kindLabels[product.kind].short}${pickedImage && pickedImage.id !== "combined" ? ` ${pickedImage.label}` : product.kind === "GCOV" ? " HH+HV" : ""}`
+    : "";
   const previewLabel = product
     ? `${kindLabels[product.kind].short} · ${(previewChoices(product).find((o) => o.id === choice) ?? previewChoices(product)[0])?.label ?? ""}`
     : "";
@@ -708,6 +717,17 @@ export default function Explorer() {
           <div className="catalog-results">
             <div className="section-caption">
               <span>{result.returned} PRODUCTS RETURNED</span>
+              <button
+                type="button"
+                className="text-button jump-to-map"
+                onClick={() =>
+                  document
+                    .querySelector(".explorer-map-area")
+                    ?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+                }
+              >
+                Show the map
+              </button>
               <span>
                 {result.offline ? "STORED · OFFLINE" : result.bounded ? "BOUNDED SEARCH" : "NASA CMR"}
               </span>
@@ -767,7 +787,8 @@ export default function Explorer() {
                 Switch the data type above to see the other family.
               </Empty>
             ) : (
-              listed.map((p) => (
+              <div className="product-list">
+              {listed.map((p) => (
                 <button
                   key={p.id}
                   className={`product-card ${p.id === product?.id ? "active" : ""}`}
@@ -801,7 +822,8 @@ export default function Explorer() {
                     <ArrowRight size={15} />
                   </span>
                 </button>
-              ))
+              ))}
+              </div>
             )}
             <p className="tiny">
               Queried {new Date(result.queried_utc).toLocaleString()} ·{" "}
@@ -850,6 +872,10 @@ export default function Explorer() {
             <HelpCircle size={15} />
             Take a tour
           </button>
+          <button onClick={() => siteTour.start(true, "demo")}>
+            <PlayCircle size={15} />
+            90-second demo
+          </button>
         </div>
       </aside>
       <section className="explorer-map-area">
@@ -890,6 +916,22 @@ export default function Explorer() {
             legend={
               pair && active ? (
                 <Legend kind={active} range={studyRange(study!, active)} compact />
+              ) : product && shown ? (
+                <PreviewLegend product={product} choice={choice}>
+                  <label className="range-label">
+                    Image opacity<span>{Math.round(opacity * 100)}%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step=".05"
+                      value={opacity}
+                      onChange={(e) => setOpacity(+e.target.value)}
+                      aria-label="Preview image opacity"
+                    />
+                  </label>
+                  {basemap === "optical" && <OpticalNote date={opticalDate} />}
+                </PreviewLegend>
               ) : undefined
             }
             markers={markers}
@@ -926,7 +968,7 @@ export default function Explorer() {
         </Suspense>
         {!pair && product && shown && (
           <div className="map-ribbon preview" role="note">
-            NASA PREVIEW{previewLabel ? ` · ${previewLabel.toUpperCase()}` : ""} · NOT PROCESSED BY TERRASHIFT
+            NASA PREVIEW{previewChoice ? ` · ${previewChoice.toUpperCase()}` : ""} · NOT PROCESSED BY TERRASHIFT
             {" · PLACEMENT APPROXIMATE"}
             {preview.status === "loading" ? " · LOW DETAIL, LOADING" : ""}
           </div>
@@ -934,25 +976,6 @@ export default function Explorer() {
         {!pair && product && !shown && preview.status === "loading" && (
           <div className="map-ribbon loading" role="status">
             <RefreshCw size={13} className="spin" /> LOADING NASA PREVIEW{previewLabel ? ` · ${previewLabel.toUpperCase()}` : ""}
-          </div>
-        )}
-        {!pair && product && shown && (
-          <div className="layer-panel preview-layer-panel">
-            <div className="section-caption">NASA PREVIEW</div>
-            <label className="range-label">
-              Image opacity<span>{Math.round(opacity * 100)}%</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step=".05"
-                value={opacity}
-                onChange={(e) => setOpacity(+e.target.value)}
-                aria-label="Preview image opacity"
-              />
-            </label>
-            <p className="tiny">Lower it to see the basemap, or the optical view of the same day, underneath.</p>
-            {basemap === "optical" && <OpticalNote date={opticalDate} />}
           </div>
         )}
         {!pair && result && series.length > 1 && (

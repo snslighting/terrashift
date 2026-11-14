@@ -23,7 +23,28 @@ export interface TourStep {
   target?: string;
   title: string;
   body: string;
+  /** How long the step stays in the auto-playing demo (default AUTOPLAY_MS). */
+  ms?: number;
+  /** Something the step does on the page once its target is shown (the demo drives the controls). */
+  action?: keyof typeof stepActions;
 }
+
+/** Set a React-controlled range input as a person would. */
+function setRange(selector: string, value: string) {
+  const input = document.querySelector<HTMLInputElement>(selector);
+  if (!input) return;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+export const stepActions = {
+  /** Move the date slider to the first date. */
+  firstDate: () => setRange(".time-scrubber input[type=range]", "0"),
+  /** Switch the preview to HV (frequency A when there are two). */
+  showHV: () =>
+    [...document.querySelectorAll<HTMLButtonElement>(".polarization-switch button")]
+      .find((b) => /^HV/.test(b.textContent ?? ""))
+      ?.click(),
+};
 
 export const tourSteps: TourStep[] = [
   {
@@ -94,8 +115,60 @@ export const tourSteps: TourStep[] = [
   },
 ];
 
+/**
+ * The 90-second Explorer demo for judges and first-time visitors: a sample place, a NASA
+ * preview, the date slider, HH/HV, a processed Earth Story, and what we can and cannot claim.
+ * It needs NASA's live catalog for the sample place; offline, each card still explains the step.
+ */
+export const demoSteps: TourStep[] = [
+  {
+    to: "/explore?preset=pantanal",
+    target: ".place-card",
+    title: "1 · Pick a place",
+    body: "One click on a sample place searched NASA's public catalog for every NISAR product over the Pantanal wetland in Brazil. The place report counts them: catalog facts, not measurements.",
+    ms: 11000,
+  },
+  {
+    to: "/explore?preset=pantanal",
+    target: ".map-result-panel",
+    title: "2 · Open a product",
+    body: "The latest backscatter product opened by itself. The picture is NASA's own preview, placed on the map from the product footprint: level 2 of 4, not processed by TerraShift.",
+    ms: 12000,
+  },
+  {
+    to: "/explore?preset=pantanal",
+    target: ".time-scrubber",
+    title: "3 · Move through time",
+    body: "The slider steps through every date on the same track. The demo jumps to the first date; each image takes a few seconds to arrive.",
+    action: "firstDate",
+    ms: 14000,
+  },
+  {
+    to: "/explore?preset=pantanal",
+    target: ".polarization-switch",
+    title: "4 · Switch HH and HV",
+    body: "HH is bright on rough ground and flooded vegetation; HV follows the volume of leaves and branches. The demo switches to HV. That reading is textbook guidance, a hypothesis to test, not a finding.",
+    action: "showHV",
+    ms: 14000,
+  },
+  {
+    to: "/discoveries",
+    target: "#venezuela-2026 .earth-story-stage",
+    title: "5 · Open a processed story",
+    body: "Here TerraShift processed NASA's science file itself: the Caracas coast across the June 2026 M7.5 earthquake, with the GNSS check that partly confirms it.",
+    ms: 12000,
+  },
+  {
+    to: "/about",
+    target: ".claims-box",
+    title: "6 · What we can and cannot claim",
+    body: "Every result says how far it was checked. This box lists what the evidence supports and what it does not.",
+    ms: 11000,
+  },
+];
+
 interface TourState {
-  start: (autoplay?: boolean) => void;
+  start: (autoplay?: boolean, path?: "tour" | "demo") => void;
   active: boolean;
 }
 const TourContext = createContext<TourState>({ start: () => {}, active: false });
@@ -123,6 +196,7 @@ const INVITE_MS = 12000;
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const [step, setStep] = useState<number | null>(null),
+    [steps, setSteps] = useState<TourStep[]>(tourSteps),
     [autoplay, setAutoplay] = useState(false),
     [invite, setInvite] = useState(false),
     onHome = useLocation().pathname.replace(/\/+$/, "") === "";
@@ -144,9 +218,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
       clearTimeout(hide);
     };
   }, [onHome]);
-  const start = useCallback((play = false) => {
+  const start = useCallback((play = false, path: "tour" | "demo" = "tour") => {
     remember();
     setInvite(false);
+    setSteps(path === "demo" ? demoSteps : tourSteps);
     setAutoplay(play);
     setStep(0);
   }, []);
@@ -160,10 +235,12 @@ export function TourProvider({ children }: { children: ReactNode }) {
       {children}
       {step !== null && (
         <TourOverlay
+          steps={steps}
+          demo={steps === demoSteps}
           step={step}
           autoplay={autoplay}
           setAutoplay={setAutoplay}
-          go={(n) => (n < 0 || n >= tourSteps.length ? close() : setStep(n))}
+          go={(n) => (n < 0 || n >= steps.length ? close() : setStep(n))}
           close={close}
         />
       )}
@@ -194,19 +271,23 @@ export function TourProvider({ children }: { children: ReactNode }) {
 type Box = { top: number; left: number; width: number; height: number };
 
 function TourOverlay({
+  steps,
+  demo,
   step,
   autoplay,
   setAutoplay,
   go,
   close,
 }: {
+  steps: TourStep[];
+  demo: boolean;
   step: number;
   autoplay: boolean;
   setAutoplay: (v: boolean) => void;
   go: (n: number) => void;
   close: () => void;
 }) {
-  const s = tourSteps[step],
+  const s = steps[step],
     navigate = useNavigate(),
     location = useLocation(),
     card = useRef<HTMLDivElement>(null),
@@ -316,12 +397,21 @@ function TourOverlay({
     if (found) card.current?.focus({ preventScroll: true });
   }, [found, step]);
 
+  // A step's action runs once its target is on screen, after a moment to look at it.
+  useEffect(() => {
+    if (!found || !s.action) return;
+    const t = setTimeout(stepActions[s.action], reduced ? 300 : 2500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, step]);
+
   // Guided demo: advance automatically while playing.
+  const stay = s.ms ?? AUTOPLAY_MS;
   useEffect(() => {
     if (!autoplay || !found) return;
-    const t = setTimeout(() => go(step + 1), AUTOPLAY_MS);
+    const t = setTimeout(() => go(step + 1), stay);
     return () => clearTimeout(t);
-  }, [autoplay, found, step, go]);
+  }, [autoplay, found, step, go, stay]);
 
   const pad = 8;
   return (
@@ -351,7 +441,7 @@ function TourOverlay({
       >
         <div className="tour-card-top">
           <span>
-            {autoplay ? "GUIDED DEMO" : "TOUR"} · {step + 1} / {tourSteps.length}
+            {demo ? "90-SECOND DEMO" : autoplay ? "GUIDED DEMO" : "TOUR"} · {step + 1} / {steps.length}
           </span>
           <button className="tour-icon" onClick={close} aria-label="Close the tour">
             <X size={16} />
@@ -360,10 +450,10 @@ function TourOverlay({
         <h2 id="tour-title">{s.title}</h2>
         <p id="tour-body">{s.body}</p>
         <div className="tour-progress" aria-hidden="true">
-          {tourSteps.map((_, i) => (
+          {steps.map((_, i) => (
             <i key={i} className={i < step ? "done" : i === step ? "active" : ""}>
               {i === step && autoplay && found && (
-                <b style={{ animationDuration: `${AUTOPLAY_MS}ms` }} />
+                <b style={{ animationDuration: `${stay}ms` }} />
               )}
             </i>
           ))}
@@ -382,7 +472,7 @@ function TourOverlay({
             {autoplay ? <Pause size={15} /> : <Play size={15} />}
           </button>
           <button className="button" onClick={() => go(step + 1)}>
-            {step === tourSteps.length - 1 ? "Finish" : "Next"}
+            {step === steps.length - 1 ? "Finish" : "Next"}
             <ArrowRight size={15} />
           </button>
         </div>
