@@ -557,7 +557,10 @@ def gcov_cases(processed, out):
         report = json.loads((folder / "gcov-report.json").read_text())
         with np.load(folder / "gcov-subset.npz") as archive:
             x, y, delta = archive["x"], archive["y"], archive["delta_db"]
-        bounds, display = aggregate_display(x, y, report["epsg"], {"d": delta}, SIZE)
+            # HV, when the case was processed with both terms (acquire.py gcov --term HHHH HVHV).
+            hv = archive["delta_db_HVHV"] if "delta_db_HVHV" in archive.files else None
+        grids = {"d": delta, **({"hv": hv} if hv is not None else {})}
+        bounds, display = aggregate_display(x, y, report["epsg"], grids, SIZE)
         cid = folder.name.removeprefix("gcov-")
         before, after = report["before"]["start"][:10], report["after"]["start"][:10]
         finite = np.isfinite(delta)
@@ -589,7 +592,22 @@ def gcov_cases(processed, out):
                         "layers": {
                             "backscatter_change": layer_entry(
                                 out, f"{pid}-backscatter", delta, display["d"], 2, "dB", "backscatter_change"
-                            )
+                            ),
+                            **(
+                                {
+                                    "backscatter_change_hv": layer_entry(
+                                        out,
+                                        f"{pid}-backscatter-hv",
+                                        hv,
+                                        display["hv"],
+                                        2,
+                                        "dB",
+                                        "backscatter_change_hv",
+                                    )
+                                }
+                                if hv is not None
+                                else {}
+                            ),
                         },
                         "comparison": None,
                         "source_hashes": {
@@ -600,9 +618,19 @@ def gcov_cases(processed, out):
                 "series": None,
                 "findings": [
                     (
-                        f"{pct(delta <= -3, finite)}% of pixels darkened by 3 dB or more (open water or burned "
+                        f"HH: {pct(delta <= -3, finite)}% of pixels darkened by 3 dB or more (open water or burned "
                         f"canopy candidates); {pct(delta >= 3, finite)}% brightened by 3 dB or more."
-                    )
+                    ),
+                    *(
+                        [
+                            (
+                                f"HV: {pct(hv <= -3, np.isfinite(hv))}% darkened by 3 dB or more (lost vegetation "
+                                f"volume candidates); {pct(hv >= 3, np.isfinite(hv))}% brightened by 3 dB or more."
+                            )
+                        ]
+                        if hv is not None
+                        else []
+                    ),
                 ],
                 "limits": [
                     "Backscatter also changes with soil moisture, wind on water and crop growth.",
@@ -612,6 +640,37 @@ def gcov_cases(processed, out):
             }
         )
     return cases
+
+
+def control_block(processed, case_id, out):
+    """Quiet-period control pair of an earthquake case (acquire.py control), or None.
+
+    Exported with the same disturbance measure as the event pair so the two can be shown side
+    by side on one colour scale.
+    """
+    folder = processed / f"control-{case_id}"
+    if not (folder / "scientific-subset.npz").is_file() or not (folder / "control.json").is_file():
+        return None
+    quality, _, layers = load(folder)
+    info = json.loads((folder / "control.json").read_text())
+    meta = metadata_block(quality)
+    dist = disturbance(layers)
+    bounds, display = aggregate_display(layers["x"], layers["y"], quality["epsg"], {"d": dist}, SIZE)
+    pid = f"{case_id}-control-{meta['before']}"
+    return {
+        "id": pid,
+        "role": "control",
+        **meta,
+        "coordinates": corners(bounds),
+        "grid": {"size": SIZE, "bounds_mercator": bounds},
+        "layers": {
+            "disturbance": layer_entry(out, f"{pid}-disturbance", dist, display["d"], 4, "", "disturbance")
+        },
+        "comparison": None,
+        "quiet_check": {**info["quiet_check"], "source": "USGS earthquake catalog"},
+        "share_changed_percent": pct(dist > 0.5, display_support(layers)),
+        "source_hashes": {**hashes(folder), "control.json": digest(folder / "control.json")},
+    }
 
 
 def main():
@@ -634,6 +693,9 @@ def main():
         )
         if c
     ] + gcov_cases(args.processed, out)
+    for case in cases:
+        if "earthquake" in case["change_types"]:
+            case["control"] = control_block(args.processed, case["id"], out)
     payload = {
         "version": 3,
         "generated": datetime.now(UTC).isoformat(),

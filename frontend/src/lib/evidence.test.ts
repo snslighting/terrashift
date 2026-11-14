@@ -7,7 +7,7 @@ import shipped from "../../public/evidence/catalog.json";
 
 const catalog = shipped as unknown as Catalog;
 const study = (id: string) => catalog.cases.find((c) => c.id === id)!;
-const kinds: LayerKind[] = ["disturbance", "los", "coherence_change", "backscatter_change"];
+const kinds: LayerKind[] = ["disturbance", "los", "coherence_change", "backscatter_change", "backscatter_change_hv"];
 
 // Synthetic comparison: never part of the public research export.
 const synthetic = (validation: Comparison["validation"]): Comparison => ({

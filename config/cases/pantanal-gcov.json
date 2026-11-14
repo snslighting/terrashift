@@ -1,0 +1,23 @@
+{
+  "_about": "TerraShift GCOV case: Pantanal wetland, before/after backscatter in HH and HV. Granule IDs are real NASA CMR records, chosen on 2026-11-14 (public metadata, no login): track 132, frame 169, ascending, full frame, HH+HV, product version 1.0.11. Nothing has been processed yet. Run: scripts/acquire.py gcov --config config/cases/pantanal-gcov.json",
+  "name": "pantanal-wetland",
+  "title": "Pantanal wetland",
+  "region": "Brazil",
+  "change": "flood",
+  "bbox": [-57.8, -17.8, -57.2, -17.0],
+  "before": "NISAR_L2_PR_GCOV_024_132_A_169_2005_DHDH_A_20260705T094227_20260705T094302_P05023_N_F_J_001",
+  "after": "NISAR_L2_PR_GCOV_033_132_A_169_2005_DHDH_A_20261021T094225_20261021T094259_P05023_N_F_J_001",
+  "terms": ["HHHH", "HVHV"],
+  "series": [
+    "NISAR_L2_PR_GCOV_024_132_A_169_2005_DHDH_A_20260705T094227_20260705T094302_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_025_132_A_169_2005_DHDH_A_20260717T094227_20260717T094301_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_027_132_A_169_2005_DHDH_A_20260810T094225_20260810T094300_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_028_132_A_169_2005_DHDH_A_20260822T094225_20260822T094259_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_029_132_A_169_2005_DHDH_A_20260903T094225_20260903T094259_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_030_132_A_169_2005_DHDH_A_20260915T094224_20260915T094259_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_031_132_A_169_2005_DHDH_A_20260927T094224_20260927T094259_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_032_132_A_169_2005_DHDH_A_20261009T094224_20261009T094259_P05023_N_F_J_001",
+    "NISAR_L2_PR_GCOV_033_132_A_169_2005_DHDH_A_20261021T094225_20261021T094259_P05023_N_F_J_001"
+  ],
+  "hypothesis": "Early July to late October spans part of the Pantanal dry season, so open water may shrink and HH may brighten where water recedes from vegetation. This is a textbook expectation to test, not a result."
+}

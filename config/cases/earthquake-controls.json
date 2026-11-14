@@ -1,0 +1,28 @@
+{
+  "_about": "Quiet-period control pairs for the earthquake cases: the 12-day GUNW pair just before each event on the same track and frame, processed exactly like the event pair. Granule IDs are real NASA CMR records (public metadata, 2026-11-14). Quiet check on the same day: USGS catalog, no M>=4 within 150 km of the area during the control dates. Nothing has been processed yet. Run: scripts/acquire.py control --case <id>",
+  "cases": {
+    "venezuela-2026": {
+      "event_granule": "NISAR_L2_PR_GUNW_022_162_A_007_023_4000_SH_20260613T100656_20260613T100731_20260625T100655_20260625T100730_P05023_N_F_J_001",
+      "control_granule": "NISAR_L2_PR_GUNW_021_162_A_007_022_4000_SH_20260601T100657_20260601T100731_20260613T100656_20260613T100731_P05023_N_F_J_001",
+      "track": 162,
+      "frame": 7,
+      "bbox": [-67.3, 10.02, -66.4, 10.7],
+      "centre": [-66.85, 10.36],
+      "allow_interpolated_ionosphere": true,
+      "event_output": "data/processed/venezuela-research",
+      "output": "data/processed/control-venezuela-2026"
+    },
+    "flores-2026": {
+      "event_granule": "NISAR_L2_PR_GUNW_027_168_A_173_028_4000_SH_20260812T214030_20260812T214104_20260824T214029_20260824T214104_P05023_N_F_J_001",
+      "control_granule": "NISAR_L2_PR_GUNW_024_168_A_173_025_4000_SH_20260707T214032_20260707T214106_20260719T214031_20260719T214105_P05023_N_F_J_001",
+      "track": 168,
+      "frame": 173,
+      "bbox": [121.1, -8.9, 121.95, -8.1],
+      "centre": [121.5, -8.5],
+      "allow_interpolated_ionosphere": false,
+      "event_output": "data/processed/first-case-audit",
+      "output": "data/processed/control-flores-2026"
+    }
+  },
+  "quiet_check": { "radius_km": 150, "min_magnitude": 4.0 }
+}

@@ -88,14 +88,25 @@ export const layerInfo: Record<LayerKind, LayerInfo> = {
     digits: 2,
   },
   backscatter_change: {
-    label: "Radar brightness change",
-    short: "Brightness change",
+    label: "Radar brightness change (HH)",
+    short: "HH change",
     unit: "dB",
     diverging: true,
     low: "Darker",
     high: "Brighter",
     explain:
       "After/before backscatter in decibels. New open water and burned canopy usually darken; flooded vegetation can brighten.",
+    digits: 1,
+  },
+  backscatter_change_hv: {
+    label: "Radar brightness change (HV)",
+    short: "HV change",
+    unit: "dB",
+    diverging: true,
+    low: "Darker",
+    high: "Brighter",
+    explain:
+      "After/before HV backscatter in decibels. HV follows the volume of vegetation: lost canopy usually darkens it, regrowth brightens it.",
     digits: 1,
   },
 };
@@ -113,7 +124,7 @@ export function displayRange(kind: LayerKind, entry?: LayerEntry): [number, numb
   if (kind === "coherence_change") return [-0.5, 0.5];
   const s = entry?.native_statistics;
   const extent = Math.max(Math.abs(s?.p05 ?? 0), Math.abs(s?.p95 ?? 0));
-  const fallback = kind === "backscatter_change" ? 6 : 50;
+  const fallback = kind.startsWith("backscatter_change") ? 6 : 50;
   const r = niceCeil(extent || fallback);
   return [-r, r];
 }

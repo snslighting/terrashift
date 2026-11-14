@@ -4,7 +4,8 @@ export type LayerKind =
   | "disturbance"
   | "los"
   | "coherence_change"
-  | "backscatter_change";
+  | "backscatter_change"
+  | "backscatter_change_hv";
 export type ChangeType =
   | "agriculture"
   | "subsidence"
@@ -139,6 +140,11 @@ export interface StudyCase {
   } | null;
   findings: string[];
   limits: string[];
+  /**
+   * Quiet-period control pair for an event pair: same track, frame, span and processing,
+   * dates with no earthquake (see docs/GCOV_AND_CONTROL_CASES.md). Absent until processed.
+   */
+  control?: (Pair & { role: "control"; quiet_check: { radius_km: number; min_magnitude: number; source: string } }) | null;
 }
 export interface Catalog {
   version: number;

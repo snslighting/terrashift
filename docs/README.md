@@ -11,6 +11,8 @@
 - [Algorithm](ALGORITHM.md): verified implementation and pending science
 - [Data pipeline](DATA_PIPELINE.md): from download to the evidence the website reads
 - [Adding new real data](ACQUIRE.md): `scripts/acquire.py` and `scripts/export_v3.py`
+- [Next processed cases](GCOV_AND_CONTROL_CASES.md): the Pantanal GCOV case (HH and HV) and earthquake control pairs, prepared with exact commands, not yet run
+- [Preview placement](PREVIEW_ALIGNMENT.md): how NASA preview images are placed on the map, checked against coastlines
 
 ## Validation and diagnostics
 
