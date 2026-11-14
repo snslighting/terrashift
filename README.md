@@ -102,6 +102,19 @@ Every push runs `.github/workflows/pages.yml`: Python tests and lint, frontend u
 
 Native phase uses `LOS_mm = −φ·λ/(4π)·1000`, toward the satellite positive. Corrections (ionosphere, wet and hydrostatic troposphere, solid-Earth tide) follow only the reviewed processor 0.25.16 / schema 1.5.0. Ground-motion pixels pass schema-specific masks, coherence and spatial-support checks; surface-change maps use every unwrapped land pixel, because low coherence is the signal. Display grids bin actual pixel centres into 256×256 Web Mercator cells with exact counts and no gap filling. Details: [algorithm](docs/ALGORITHM.md), [validation](docs/VALIDATION.md), [GNSS comparison](docs/GNSS_COMPARISON.md), [correction diagnostics](docs/CORRECTION_DIAGNOSTICS.md), [repeat pair](docs/REPEAT_PAIR_FINDINGS.md).
 
+## Team
+
+| Name | Role |
+|---|---|
+| Sharifjon Farmonov | Product Manager |
+| Sardorbek Komilov | Backend Developer |
+| Nurjahon Shodiyev | Frontend Developer |
+| Jahongir Karimov | Data Analyst & Researcher |
+| Temurbek Tolibov | UX/UI Designer |
+| Amiriddin Ramazonov | Spokesman |
+
+TerraShift is an independent NASA Space Apps 2026 project. No endorsement by NASA, ISRO or any institution is implied. The site's About page also credits the data and tools used (NISAR via ASF, NASA CMR, NASA GIBS, Nevada Geodetic Laboratory, USGS, OpenStreetMap/Photon, Esri); terms are in [THIRD_PARTY_NOTICES.md](frontend/public/THIRD_PARTY_NOTICES.md).
+
 ## License
 
 Code is released under the [MIT License](LICENSE). To cite TerraShift, see [CITATION.cff](CITATION.cff). NISAR data are provided by NASA and ISRO through the ASF DAAC; third-party library licences are in `frontend/public/licenses`. Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md); to ask for a new place, open a *Request an area* issue.

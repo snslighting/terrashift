@@ -2696,3 +2696,76 @@
 .explorer-map-area:has(.map-ribbon) .map-identity {
   visibility: hidden;
 }
+
+/* Team and credits (About). */
+.team-section,
+.credits-section {
+  margin: 0 0 56px;
+}
+.team-section h2,
+.credits-section h2 {
+  font-size: var(--fs-xl);
+  margin: 0 0 16px;
+}
+.team-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-list li {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0b1526cc;
+}
+.team-list img,
+.team-initials {
+  width: 96px;
+  height: 128px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.team-initials {
+  display: grid;
+  place-items: center;
+  background: #101e31;
+  color: #8ea3b6;
+  font-size: var(--fs-lg);
+  letter-spacing: 0.06em;
+}
+.team-list strong {
+  font-size: var(--fs-md);
+}
+.team-list span {
+  color: #a5bacb;
+  font-size: var(--fs-sm);
+}
+.team-independence {
+  margin-top: 14px;
+  color: #a5bacb;
+  font-size: var(--fs-sm);
+}
+.credits-section dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.credits-section dt {
+  font-weight: 600;
+}
+.credits-section dd {
+  margin: 2px 0 0;
+  color: #c9d8e6;
+  font-size: var(--fs-sm);
+}
+.credits-section dd span {
+  color: #8ea3b6;
+}

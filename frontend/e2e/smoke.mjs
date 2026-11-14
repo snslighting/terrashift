@@ -22,6 +22,7 @@ const types = {
   ".geojson": "application/json",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".webp": "image/webp",
   ".bin": "application/octet-stream",
   ".md": "text/plain",
   ".txt": "text/plain",
@@ -424,6 +425,24 @@ try {
     await page.locator(".tour-spotlight").waitFor();
     await card.getByRole("button", { name: "Finish" }).click();
     assert.equal(await page.locator(".tour-card").count(), 0);
+  });
+
+  await check("about page: team, independence line and credits; no placeholder text", async () => {
+    await page.goto(origin + base + "about/");
+    await page.locator(".team-list li").first().waitFor();
+    const members = await page.locator(".team-list li").allInnerTexts();
+    assert.equal(members.length, 6);
+    assert.match(members[0], /Sharifjon Farmonov\s+Product Manager/);
+    assert.match(members[5], /Amiriddin Ramazonov\s+Spokesman/);
+    const photo = page.locator(".team-list img[alt='Portrait of Nurjahon Shodiyev']");
+    await photo.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => document.querySelector(".team-list img")?.complete);
+    assert.ok(await photo.evaluate((img) => img.complete && img.naturalWidth > 0), "portrait did not load");
+    await page.getByText("No endorsement by NASA, ISRO or any institution is implied").waitFor();
+    assert.equal(await page.getByText("have not been supplied").count(), 0);
+    const credits = await page.locator(".credits-section").innerText();
+    for (const s of ["NISAR", "NASA CMR", "NASA GIBS", "Nevada Geodetic Laboratory", "USGS", "OpenStreetMap", "Esri"])
+      assert.ok(credits.includes(s), `credits miss ${s}`);
   });
 
   await check("about page: challenge fit and what we can and cannot claim, from the catalog", async () => {

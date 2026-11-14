@@ -1,4 +1,5 @@
 import { ClaimsBox } from "../components/Claims";
+import { CreditsSection, TeamSection } from "../components/Team";
 import { ChallengeFit } from "../components/ChallengeFit";
 import { ArrowUpRight, Orbit, Globe2, ShieldCheck, Code2 } from "lucide-react";
 import {
@@ -154,13 +155,14 @@ export default function About() {
         </div>
         <p>
           Source code and deployment documentation are available in the project
-          repository. Team-member names and affiliations have not been supplied;
-          no institutional endorsement is implied.
+          repository.
         </p>
         <SourceLink href="https://github.com/snslighting/terrashift">
           Explore the source code
         </SourceLink>
       </section>
+      <TeamSection />
+      <CreditsSection />
       <section className="about-cta">
         <h2>
           The next perspective
