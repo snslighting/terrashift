@@ -23,7 +23,7 @@ import type {
 } from "../lib/types";
 import { format, layerInfo, studyRange } from "../lib/layers";
 import { inspect, longDate, number, signed } from "../lib/science";
-import { dataBounds, validationLabel } from "../lib/evidence";
+import { checkOutcome, dataBounds, trustLabels, trustOf } from "../lib/evidence";
 import { Legend, rasterURL } from "./Raster";
 import { Skeleton, StatusBadge } from "./UI";
 const MapViewer = lazy(() => import("./MapViewer"));
@@ -195,7 +195,7 @@ export function Confidence({
   pair?: Pair;
 }) {
   const c = pair?.comparison,
-    verdict = validationLabel(c);
+    trust = trustOf(pair);
   return (
     <section className="confidence" aria-label="How sure are we?">
       <div className="confidence-heading">
@@ -207,9 +207,8 @@ export function Confidence({
         <p>
           Checked against {c.count} independent GNSS stations (reference{" "}
           {c.reference}): ground-motion differs by{" "}
-          <strong>{number(c.rmse_mm)} mm RMS</strong>, so ground-motion
-          validation{" "}
-          <strong>{verdict.state === "passed" ? "passed" : "failed"}</strong>.
+          <strong>{number(c.rmse_mm)} mm RMS</strong>, so the ground-motion
+          check <strong>{checkOutcome(c)}</strong>.
           {c.structure.status === "DIAGNOSTIC_ONLY" &&
             ` ${c.structure.interpretation}`}
         </p>
@@ -223,6 +222,10 @@ export function Confidence({
       ) : (
         <p>No independent ground measurements are available for this area.</p>
       )}
+      <p className={`trust-level ${trust}`}>
+        <b>Trust level:</b> {trustLabels[trust]}
+        <small>Levels: validated · partly checked · failed · no independent check</small>
+      </p>
       <ul>
         {study.limits.map((l) => (
           <li key={l}>{l}</li>

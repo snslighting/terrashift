@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Grid, LayerEntry, LayerKind } from "../lib/types";
-import { color, displayRange, gradient, layerInfo } from "../lib/layers";
+import { color, displayRange, gradient, layerInfo, NEUTRAL } from "../lib/layers";
 
 export function paint(
   canvas: HTMLCanvasElement,
@@ -122,6 +122,12 @@ export function Legend({
           {info.high} · {info.diverging ? `≥ +${range[1]}${unit}` : "1"}
         </span>
       </div>
+      {info.diverging && (
+        <p className="legend-zero">
+          <i style={{ background: `rgb(${NEUTRAL.join(",")})` }} /> grey: no change
+          <i className="nodata" /> see-through: no data
+        </p>
+      )}
       {band && (
         <p className="legend-noise-note">
           <i /> Within error: ±{Math.round(noise!)}

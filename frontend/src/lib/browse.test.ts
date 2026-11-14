@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { browseLinks, footprintBounds, maskNoData, placeImage, previewChoices, ringBounds } from "./browse";
+import { browseLinks, footprintBounds, footprintRing, maskNoData, placeImage, placeNative, previewChoices, ringBounds } from "./browse";
 import { normalizeProduct } from "./api";
 import { placeStats, timeline } from "./catalogStats";
-import { dataBounds, sameGeometry, statusLevel, trustOf } from "./evidence";
+import { checkOutcome, dataBounds, sameGeometry, statusLevel, trustLabels, trustOf } from "./evidence";
 import { presets } from "./presets";
-import type { Pair, Product } from "./types";
+import type { Comparison, Pair, Product } from "./types";
 
 // Trimmed from real NASA catalog records (public metadata, 12 November 2026).
 const BROWSE = "https://nisar.asf.earthdatacloud.nasa.gov/BROWSE/NISAR_L2_GCOV_PROVISIONAL_V1/G/G";
@@ -106,6 +106,28 @@ describe("placing a preview on the map", () => {
     expect(ringBounds([[179, 1], [-179, 1], [-179, 2], [179, 2]])).toEqual([179, 1, 181, 2]);
     const pair = { coordinates: [[179.5, 2], [-179.5, 2], [-179.5, 1], [179.5, 1]] } as unknown as Pair;
     expect(dataBounds(pair)).toEqual([179.5, 1, -179.5, 2]);
+    // Grids whose corners are already unwrapped past 180°, or lie just west of -180°.
+    const unwrapped = { coordinates: [[179.5, 2], [180.5, 2], [180.5, 1], [179.5, 1]] } as unknown as Pair;
+    expect(dataBounds(unwrapped)).toEqual([179.5, 1, -179.5, 2]);
+    const east = { coordinates: [[181, 2], [182, 2], [182, 1], [181, 1]] } as unknown as Pair;
+    expect(dataBounds(east)).toEqual([-179, 1, -178, 2]);
+    // A footprint NASA splits into two polygons at the 180° line stays one box.
+    const split = {
+      ...normalizeProduct(gcovRecord),
+      geometry: {
+        type: "MultiPolygon",
+        coordinates: [
+          [[[179, -16], [180, -16], [180, -17], [179, -17], [179, -16]]],
+          [[[-180, -16], [-179, -16], [-179, -17], [-180, -17], [-180, -16]]],
+        ],
+      },
+    } as Product;
+    expect(footprintBounds(split)).toEqual([179, -17, 181, -16]);
+    // Single-polarization previews across the line get continuous corner longitudes.
+    const ring = footprintRing(split),
+      placed = placeNative({ x0: 0, x1: 99, y0: 0, y1: 99 }, 100, 100, ring);
+    const lons = placed.coordinates.map((c) => c[0]);
+    expect(Math.max(...lons) - Math.min(...lons)).toBeLessThan(5);
     const p = normalizeProduct(gcovRecord);
     expect(footprintBounds(p)![0]).toBeCloseTo(-59.51912);
   });
@@ -177,6 +199,12 @@ describe("trust levels (F7, F10)", () => {
     expect(trustOf({ ...base, gnss: { station: "CCS1" } } as unknown as Pair)).toBe("partly_checked");
     expect(trustOf({ ...base, comparison: { validation: "FAILED" } } as unknown as Pair)).toBe("failed");
     expect(trustOf({ ...base, comparison: { validation: "PASSED" } } as unknown as Pair)).toBe("validated");
+    // The GNSS check reads "failed" only when the catalog says FAILED.
+    expect(checkOutcome({ validation: "FAILED" } as Comparison)).toBe("failed");
+    expect(checkOutcome({ validation: "PASSED" } as Comparison)).toBe("passed");
+    expect(checkOutcome({} as Comparison)).toBe("was not assessed");
+    expect(checkOutcome(null)).toBe("was not assessed");
+    expect(trustLabels.partly_checked).toMatch(/^Partly checked/);
     expect(statusLevel(undefined, base)).toBe(3);
     expect(statusLevel(undefined, { ...base, gnss: { station: "CCS1" } } as unknown as Pair)).toBe(4);
   });

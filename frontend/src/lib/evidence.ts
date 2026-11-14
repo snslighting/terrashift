@@ -120,6 +120,12 @@ export const trustLabels: Record<Trust, string> = {
   not_checked: "No independent check",
 };
 
+/** Outcome of the GNSS check in words: never "failed" unless the catalog says FAILED. */
+export function checkOutcome(comparison: Comparison | null | undefined): "passed" | "failed" | "was not assessed" {
+  const state = validationLabel(comparison).state;
+  return state === "not_assessed" ? "was not assessed" : state;
+}
+
 /** The four rungs of TerraShift's honest status ladder. */
 export const ladder = [
   { level: 1, short: "Catalog record", text: "NASA lists this product: date, track and footprint." },

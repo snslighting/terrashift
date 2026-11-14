@@ -13,27 +13,31 @@ const sequential: RGB[] = [
   [250, 153, 25],
   [252, 255, 164],
 ];
-// The centre is a muted slate, lighter than the page (#070d19) and the empty map,
-// so "no change" never reads as "no data" (blank, transparent cells).
-const NEUTRAL: RGB = [74, 82, 98];
+// The centre ("no change") is a light slate: at least 3:1 contrast against the empty dark
+// map (#0a1424) even at 80% layer opacity, so "no change" is never mistaken for "no data"
+// (transparent cells). Lightness still rises steadily away from zero, so real change is the
+// brighter, more saturated colour (review 3, item 4).
+export const NEUTRAL: RGB = [110, 118, 134];
+/** Colour of the empty map behind every layer. */
+export const MAP_BACKGROUND: RGB = [10, 20, 36];
 const diverging: RGB[] = [
-  [146, 205, 255],
-  [70, 145, 225],
-  [44, 92, 160],
+  [170, 215, 255],
+  [120, 175, 240],
+  [92, 140, 210],
   NEUTRAL,
-  [160, 60, 52],
-  [228, 98, 70],
-  [255, 172, 130],
+  [205, 110, 92],
+  [235, 140, 100],
+  [255, 190, 150],
 ];
-/** Activity change: purple (more change, the brighter end) through dark to teal (less change). */
+/** Activity change: purple (more change) through slate to teal (less change). */
 const activity: RGB[] = [
   [238, 176, 255],
-  [190, 110, 235],
-  [118, 66, 168],
+  [200, 130, 245],
+  [160, 105, 215],
   NEUTRAL,
-  [30, 104, 106],
-  [36, 140, 138],
-  [78, 186, 176],
+  [60, 140, 140],
+  [70, 170, 165],
+  [110, 210, 195],
 ];
 export const paletteFor = (kind: LayerKind): RGB[] =>
   kind === "coherence_change" ? activity : layerInfo[kind].diverging ? diverging : sequential;

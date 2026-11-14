@@ -1888,13 +1888,13 @@ a svg {
 .diverging {
   background: linear-gradient(
     90deg,
-    #92cdff,
-    #4691e1,
-    #2c5ca0,
-    #4a5262,
-    #a03c34,
-    #e46246,
-    #ffac82
+    #aad7ff,
+    #78aff0,
+    #5c8cd2,
+    #6e7686,
+    #cd6e5c,
+    #eb8c64,
+    #ffbe96
   );
 }
 .legend-ticks {
