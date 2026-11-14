@@ -137,6 +137,8 @@ function cmrItems(url) {
 const browser = await chromium.launch({ args: ["--use-gl=swiftshader", "--enable-unsafe-swiftshader"] });
 const failures = [];
 const check = async (name, fn) => {
+  // SMOKE_ONLY=text runs only the checks whose name contains it (for chasing a flaky check).
+  if (process.env.SMOKE_ONLY && !name.includes(process.env.SMOKE_ONLY)) return;
   try {
     await fn();
     console.log("PASS", name);
@@ -400,6 +402,9 @@ try {
     await page.getByRole("button", { name: /Watch the 90-second demo/ }).click();
     const card = page.locator(".tour-card");
     await card.getByText("90-SECOND DEMO · 1 / 6").waitFor();
+    // Step by hand: pause autoplay first so it cannot race the clicks below (autoplay itself is
+    // covered by the two 4x-speed demo checks).
+    await card.getByRole("button", { name: "Pause the guided demo" }).click();
     await page.locator("#tour-title", { hasText: "Pick a place" }).waitFor();
     assert.match(page.url(), /preset=pantanal/);
     await page.locator(".place-card").waitFor({ timeout: 15000 });
@@ -447,6 +452,49 @@ try {
     const credits = await page.locator(".credits-section").innerText();
     for (const s of ["NISAR", "NASA CMR", "NASA GIBS", "Nevada Geodetic Laboratory", "USGS", "OpenStreetMap", "Esri"])
       assert.ok(credits.includes(s), `credits miss ${s}`);
+  });
+
+  await check("90-second demo plays on by itself when NASA's images never arrive", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 } });
+    await ctx.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
+    // NASA's preview images hang forever.
+    await ctx.route(/nisar\.asf\.earthdatacloud\.nasa\.gov\/BROWSE/, () => {});
+    // 4x speed (test hook): the demo's waits shrink, the logic is the same.
+    await ctx.addInitScript(() => sessionStorage.setItem("terrashift-demo-speed", "4"));
+    const p = await ctx.newPage();
+    p.on("pageerror", (e) => errors.push(e.message));
+    await p.goto(origin + base);
+    const t0 = Date.now();
+    await p.getByRole("button", { name: /Watch the 90-second demo/ }).click();
+    await p.locator("#tour-title", { hasText: "Open a product" }).waitFor({ timeout: 30000 });
+    await p.locator(".tour-slow", { hasText: "NASA's image is slow" }).waitFor({ timeout: 15000 });
+    await p.locator("#tour-title", { hasText: "What we can and cannot claim" }).waitFor({ timeout: 60000 });
+    const secs = (Date.now() - t0) / 1000;
+    assert.ok(secs < 60, `demo took ${secs.toFixed(1)} s to reach the last step at 4x speed`);
+    await ctx.close();
+  });
+
+  await check("demo steps keep their timing while the page rewrites its address", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 } });
+    await ctx.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
+    await ctx.addInitScript(() => sessionStorage.setItem("terrashift-demo-speed", "4"));
+    const p = await ctx.newPage();
+    p.on("pageerror", (e) => errors.push(e.message));
+    await p.goto(origin + base);
+    await p.getByRole("button", { name: /Watch the 90-second demo/ }).click();
+    await p.locator("#tour-title", { hasText: "Open a product" }).waitFor({ timeout: 30000 });
+    await p.locator(".polarization-switch button").first().waitFor({ timeout: 15000 });
+    // Switch images every 0.4 s: each switch rewrites the URL. Step 2 lasts 12 s / 4 = 3 s.
+    const t0 = Date.now();
+    let moved = false;
+    while (Date.now() - t0 < 9000 && !moved) {
+      const buttons = p.locator(".polarization-switch button");
+      if (await buttons.count()) await buttons.nth(Math.floor(Math.random() * (await buttons.count()))).click({ force: true }).catch(() => {});
+      await p.waitForTimeout(400);
+      moved = !(await p.locator("#tour-title", { hasText: "Open a product" }).count());
+    }
+    assert.ok(moved, "step 2 never advanced while the URL kept changing (the countdown restarted on every change)");
+    await ctx.close();
   });
 
   await check("about page: challenge fit and what we can and cannot claim, from the catalog", async () => {

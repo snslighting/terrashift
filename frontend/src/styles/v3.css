@@ -2953,3 +2953,8 @@
   align-items: center;
   min-height: 24px;
 }
+.tour-slow {
+  margin: 6px 0 0;
+  color: #ffcf9e;
+  font-size: var(--fs-xs);
+}

@@ -27,6 +27,26 @@ export interface TourStep {
   ms?: number;
   /** Something the step does on the page once its target is shown (the demo drives the controls). */
   action?: keyof typeof stepActions;
+  /** The step shows a NASA preview: if it has not arrived in IMAGE_WAIT_MS, the demo moves on. */
+  needsImage?: boolean;
+}
+
+/** How long a demo step waits for NASA's preview image before skipping ahead. */
+export const IMAGE_WAIT_MS = 10_000;
+/** Is NASA's preview on the map (not still loading)? */
+export const imageReady = () =>
+  !!document.querySelector(".map-ribbon.preview") && !document.querySelector(".map-result-panel .preview-status");
+/**
+ * Test hook: a speed factor for the auto-playing demo, read from session storage
+ * ("terrashift-demo-speed"), so browser tests need not wait 90 seconds. 1 for everyone else.
+ */
+export function demoSpeed() {
+  try {
+    const v = Number(sessionStorage.getItem("terrashift-demo-speed"));
+    return v > 0 ? v : 1;
+  } catch {
+    return 1;
+  }
 }
 
 /** Set a React-controlled range input as a person would. */
@@ -126,14 +146,15 @@ export const demoSteps: TourStep[] = [
     target: ".place-card",
     title: "1 · Pick a place",
     body: "One click on a sample place searched NASA's public catalog for every NISAR product over the Pantanal wetland in Brazil. The place report counts them: catalog facts, not measurements.",
-    ms: 11000,
+    ms: 12500,
   },
   {
     to: "/explore?preset=pantanal",
     target: ".map-result-panel",
     title: "2 · Open a product",
     body: "The latest backscatter product opened by itself. The picture is NASA's own preview, placed on the map from the product footprint: level 2 of 4, not processed by TerraShift.",
-    ms: 12000,
+    ms: 13500,
+    needsImage: true,
   },
   {
     to: "/explore?preset=pantanal",
@@ -141,7 +162,8 @@ export const demoSteps: TourStep[] = [
     title: "3 · Move through time",
     body: "The slider steps through every date on the same track. The demo jumps to the first date; each image takes a few seconds to arrive.",
     action: "firstDate",
-    ms: 14000,
+    ms: 15500,
+    needsImage: true,
   },
   {
     to: "/explore?preset=pantanal",
@@ -149,21 +171,22 @@ export const demoSteps: TourStep[] = [
     title: "4 · Switch HH and HV",
     body: "HH is bright on rough ground and flooded vegetation; HV follows the volume of leaves and branches. The demo switches to HV. That reading is textbook guidance, a hypothesis to test, not a finding.",
     action: "showHV",
-    ms: 14000,
+    ms: 15500,
+    needsImage: true,
   },
   {
     to: "/discoveries",
     target: "#venezuela-2026 .earth-story-stage",
     title: "5 · Open a processed story",
     body: "Here TerraShift processed NASA's science file itself: the Caracas coast across the June 2026 M7.5 earthquake, with the GNSS check that partly confirms it.",
-    ms: 12000,
+    ms: 13500,
   },
   {
     to: "/about",
     target: ".claims-box",
     title: "6 · What we can and cannot claim",
     body: "Every result says how far it was checked. This box lists what the evidence supports and what it does not.",
-    ms: 11000,
+    ms: 12500,
   },
 ];
 
@@ -307,10 +330,17 @@ function TourOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Wait for the target, then scroll it into view and track its position.
+  // Wait for the target, then scroll it into view and track its position. The effect also re-runs
+  // when the address changes (the target may move), but only a new step resets "found": resetting
+  // it on every address change restarted the demo's countdown.
+  const lastStep = useRef(-1);
   useEffect(() => {
-    setFound(false);
-    setBox(null);
+    const newStep = lastStep.current !== step;
+    lastStep.current = step;
+    if (newStep) {
+      setFound(false);
+      setBox(null);
+    }
     if (!s.target) {
       setFound(true);
       return;
@@ -400,18 +430,41 @@ function TourOverlay({
   // A step's action runs once its target is on screen, after a moment to look at it.
   useEffect(() => {
     if (!found || !s.action) return;
-    const t = setTimeout(stepActions[s.action], reduced ? 300 : 2500);
+    const t = setTimeout(stepActions[s.action], (reduced ? 300 : 2500) / demoSpeed());
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [found, step]);
 
-  // Guided demo: advance automatically while playing.
-  const stay = s.ms ?? AUTOPLAY_MS;
+  // Guided demo: advance automatically while playing. `go` changes on every address change
+  // (the Explorer rewrites its URL as the demo moves the slider), so it is read through a ref:
+  // otherwise each URL update restarted the countdown and a busy page could hold a step forever.
+  const stay = (s.ms ?? AUTOPLAY_MS) / demoSpeed();
+  const goRef = useRef(go);
+  goRef.current = go;
   useEffect(() => {
     if (!autoplay || !found) return;
-    const t = setTimeout(() => go(step + 1), stay);
+    const t = setTimeout(() => goRef.current(step + 1), stay);
     return () => clearTimeout(t);
-  }, [autoplay, found, step, go, stay]);
+  }, [autoplay, found, step, stay]);
+
+  // A slow NASA image never holds the demo: if it has not arrived within IMAGE_WAIT_MS, say so
+  // and move on two seconds later.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!autoplay || !s.needsImage) return;
+    const speed = demoSpeed();
+    let skip: ReturnType<typeof setTimeout> | undefined;
+    const wait = setTimeout(() => {
+      if (imageReady()) return;
+      setSlow(true);
+      skip = setTimeout(() => goRef.current(step + 1), 2000 / speed);
+    }, IMAGE_WAIT_MS / speed);
+    return () => {
+      clearTimeout(wait);
+      clearTimeout(skip);
+    };
+  }, [autoplay, step]);
 
   const pad = 8;
   return (
@@ -449,6 +502,11 @@ function TourOverlay({
         </div>
         <h2 id="tour-title">{s.title}</h2>
         <p id="tour-body">{s.body}</p>
+        {slow && (
+          <p className="tour-slow" role="status">
+            NASA's image is slow right now, so the demo moves on. It will be there when you come back.
+          </p>
+        )}
         <div className="tour-progress" aria-hidden="true">
           {steps.map((_, i) => (
             <i key={i} className={i < step ? "done" : i === step ? "active" : ""}>
