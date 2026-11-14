@@ -315,99 +315,189 @@ function TourOverlay({
     location = useLocation(),
     card = useRef<HTMLDivElement>(null),
     [box, setBox] = useState<Box | null>(null),
-    [found, setFound] = useState(false),
+    // True when the latest box change should animate (a new step, or a layout shift);
+    // false while the page scrolls, so the spotlight and card stay glued to the target.
+    [glide, setGlide] = useState(false),
+    // Which step's target has been found (or given up on); compared with `step` so a new step
+    // never sees the previous one's "found" for a render.
+    [foundStep, setFoundStep] = useState(-1),
+    found = foundStep === step,
     [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null),
+    [cardGlide, setCardGlide] = useState(false),
+    // The card stays transparent until its first placement, so it never flashes in the middle.
+    [shown, setShown] = useState(false),
     reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const here = location.pathname.replace(/(.)\/+$/, "$1") + location.search;
 
-  // Go to the step's page.
+  // Go to the step's page, find the target, scroll it into view and wait until it has stopped
+  // moving (smooth scroll, a page fading in, data arriving), then move the spotlight and card
+  // there in one glide. Until then both hold still where they were: picking a place while the
+  // target was still moving made the card bounce from side to side before it settled.
+  // Afterwards the target is followed every frame, so scrolling, resizing, layout shifts and
+  // URL rewrites (the Explorer and Analysis keep theirs in sync) never re-scroll the page.
   useEffect(() => {
     const [path, query = ""] = s.to.split("?");
-    const onPage =
-      location.pathname.replace(/(.)\/+$/, "$1") === path &&
-      (!query || query.split("&").every((q) => location.search.includes(q)));
+    const samePath = location.pathname.replace(/(.)\/+$/, "$1") === path;
+    const onPage = samePath && (!query || query.split("&").every((q) => location.search.includes(q)));
     if (!onPage) navigate(s.to);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
-
-  // Wait for the target, then scroll it into view and track its position. The effect also re-runs
-  // when the address changes (the target may move), but only a new step resets "found": resetting
-  // it on every address change restarted the demo's countdown.
-  const lastStep = useRef(-1);
-  useEffect(() => {
-    const newStep = lastStep.current !== step;
-    lastStep.current = step;
-    if (newStep) {
-      setFound(false);
-      setBox(null);
-    }
+    const setFound = (v: boolean) => v && setFoundStep(step);
+    // A new page: drop the old spotlight (its element is going away) but keep the card in place.
+    if (!samePath) setBox(null);
     if (!s.target) {
+      setBox(null);
       setFound(true);
       return;
     }
-    let el: Element | null = null,
+    const target = s.target;
+    let stopped = false,
       frame = 0,
-      tries = 0,
-      stopped = false;
-    const measure = () => {
-      if (!el || stopped) return;
-      const r = el.getBoundingClientRect();
-      setBox({ top: r.top, left: r.left, width: r.width, height: r.height });
-    };
-    const onMove = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
-    };
-    const look = () => {
-      if (stopped) return;
-      el = document.querySelector(s.target!);
-      if (el && el.getBoundingClientRect().height > 0) {
+      el: Element | null = null,
+      shownBox: Box | null = null,
+      settling = false,
+      settleStart = 0,
+      prev: Box | null = null,
+      stableSince = 0,
+      stableFrames = 0,
+      lastScroll = -Infinity,
+      lastChange = -Infinity,
+      lastLook = -Infinity,
+      gaveUp = false;
+    const begin = performance.now(),
+      // The old page fades out before the new one mounts: do not pick up its elements.
+      startAfter = samePath ? 0 : 250,
+      rectOf = (e: Element): Box => {
+        const r = e.getBoundingClientRect();
+        return { top: r.top, left: r.left, width: r.width, height: r.height };
+      },
+      same = (a: Box | null, b: Box | null) =>
+        !!a &&
+        !!b &&
+        Math.abs(a.top - b.top) < 0.5 &&
+        Math.abs(a.left - b.left) < 0.5 &&
+        Math.abs(a.width - b.width) < 0.5 &&
+        Math.abs(a.height - b.height) < 0.5,
+      offScreen = (b: Box) => b.top + b.height < 0 || b.top > window.innerHeight,
+      bringIntoView = (e: Element) => {
         // On phones the card docks at the bottom, so bring the target to the top.
-        el.scrollIntoView({
+        e.scrollIntoView({
           block: window.innerWidth < 700 ? "start" : "center",
           behavior: reduced ? "auto" : "smooth",
         });
-        setTimeout(measure, reduced ? 0 : 450);
-        setFound(true);
-        window.addEventListener("scroll", onMove, true);
-        window.addEventListener("resize", onMove);
+        settling = true;
+        settleStart = performance.now();
+        prev = null;
+        stableFrames = 0;
+      },
+      show = (b: Box, animate: boolean) => {
+        shownBox = b;
+        setGlide(animate && !reduced);
+        setBox(b);
+      };
+    const onScroll = () => (lastScroll = performance.now());
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+
+    const loop = (now: number) => {
+      if (stopped) return;
+      frame = requestAnimationFrame(loop);
+      if (!el || !el.isConnected) {
+        el = null;
+        if (now - begin < startAfter || now - lastLook < 100) return;
+        lastLook = now;
+        const e = document.querySelector(target);
+        if (!e || e.getBoundingClientRect().height === 0) {
+          if (!gaveUp && now - begin > 6000) {
+            // Not on screen (e.g. hidden on phones): show the card centred, keep looking.
+            gaveUp = true;
+            shownBox = null;
+            setBox(null);
+            setFound(true);
+          }
+          return;
+        }
+        el = e;
+        // A first find always scrolls; a re-rendered target only if it is out of view.
+        if (!shownBox || gaveUp || offScreen(rectOf(e))) bringIntoView(e);
+        else settling = true;
+      }
+      const b = rectOf(el);
+      if (settling) {
+        if (same(b, prev)) stableFrames++;
+        else {
+          stableFrames = 0;
+          stableSince = now;
+        }
+        prev = b;
+        // Settled: unchanged for three frames and 120 ms (or give up waiting after 1.5 s).
+        if ((stableFrames >= 3 && now - stableSince >= 120) || now - settleStart > 1500) {
+          settling = false;
+          lastChange = now;
+          show(b, true);
+          setFound(true);
+        }
         return;
       }
-      if (++tries < 60) setTimeout(look, 100);
-      else setFound(true); // not on screen (e.g. hidden on phones): show the card centred
+      if (!same(b, shownBox)) {
+        // Glide over a one-off layout shift; follow scrolling and continuous motion directly.
+        const animate = now - lastScroll > 150 && now - lastChange > 150;
+        lastChange = now;
+        show(b, animate);
+      }
     };
-    // Give a page transition time to finish before looking.
-    const t = setTimeout(look, 150);
+    frame = requestAnimationFrame(loop);
     return () => {
       stopped = true;
-      clearTimeout(t);
       cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onMove, true);
-      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, here]);
+  }, [step]);
 
-  // Place the card next to the spotlight, or centred / docked when there is no room.
+  // Never keep the card hidden for long, even if the target is slow to appear.
+  useEffect(() => {
+    const t = setTimeout(() => setShown(true), 700);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Place the card next to the spotlight, or centred / docked when there is no room. It is
+  // placed only once the target has settled, and while following a scroll it keeps the side it
+  // is on for as long as it fits, so it never flips back and forth.
+  const side = useRef<"below" | "above" | "right" | "corner" | null>(null);
   useLayoutEffect(() => {
     const c = card.current;
-    if (!c) return;
+    if (!c || !found) return; // hold still while the next target is being found
     const vw = window.innerWidth,
       vh = window.innerHeight,
       w = c.offsetWidth,
       h = c.offsetHeight,
       gap = 16;
+    const hadPos = cardPos !== null;
+    setShown(true);
     if (!box || vw < 700) {
+      side.current = null;
+      setCardGlide(false);
       setCardPos(null); // CSS centres it, or docks it at the bottom on phones
       return;
     }
     const left = Math.min(Math.max(box.left, 16), vw - w - 16);
-    if (box.top + box.height + gap + h < vh - 16) setCardPos({ top: box.top + box.height + gap, left });
-    else if (box.top - gap - h > 16) setCardPos({ top: box.top - gap - h, left });
-    else if (box.left + box.width + gap + w < vw - 16)
-      setCardPos({ top: Math.min(Math.max(box.top, 16), vh - h - 16), left: box.left + box.width + gap });
-    else setCardPos({ top: vh - h - 24, left: vw - w - 24 });
-  }, [box, step]);
+    const places = {
+      below: box.top + box.height + gap + h < vh - 16 && { top: box.top + box.height + gap, left },
+      above: box.top - gap - h > 16 && { top: box.top - gap - h, left },
+      right: box.left + box.width + gap + w < vw - 16 && {
+        top: Math.min(Math.max(box.top, 16), vh - h - 16),
+        left: box.left + box.width + gap,
+      },
+      corner: { top: vh - h - 24, left: vw - w - 24 },
+    };
+    const order = ["below", "above", "right", "corner"] as const;
+    // Following a scroll: stay on the same side while it still fits.
+    const keep = !glide && side.current && places[side.current] ? side.current : null;
+    const pick = keep ?? order.find((k) => places[k])!;
+    side.current = pick;
+    setCardGlide(glide && hadPos);
+    setCardPos(places[pick] as { top: number; left: number });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [box, found]);
 
   // Keyboard: arrows move, Escape closes. Focus the card for screen readers.
   useEffect(() => {
@@ -471,10 +561,9 @@ function TourOverlay({
     <div className="tour-layer" aria-live="polite">
       {box ? (
         <div
-          className="tour-spotlight"
+          className={`tour-spotlight${glide ? " glide" : ""}`}
           style={{
-            top: box.top - pad,
-            left: box.left - pad,
+            transform: `translate3d(${box.left - pad}px, ${box.top - pad}px, 0)`,
             width: box.width + pad * 2,
             height: box.height + pad * 2,
           }}
@@ -484,12 +573,13 @@ function TourOverlay({
       )}
       <div
         ref={card}
-        className={`tour-card${cardPos ? "" : " floating"}`}
-        style={cardPos ?? undefined}
+        className={`tour-card${cardPos ? " placed" : " floating"}${cardGlide ? " glide" : ""}${shown ? "" : " pending"}`}
+        style={cardPos ? { transform: `translate3d(${cardPos.left}px, ${cardPos.top}px, 0)` } : undefined}
         role="dialog"
         aria-modal="false"
         aria-labelledby="tour-title"
         aria-describedby="tour-body"
+        aria-busy={!found}
         tabIndex={-1}
       >
         <div className="tour-card-top">

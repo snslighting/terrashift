@@ -834,13 +834,29 @@
   z-index: 1000;
   pointer-events: none;
 }
+/* Positioned with transform; it animates only when it glides to a new target ("glide"),
+   and follows scrolling directly so it never lags behind the element. */
 .tour-spotlight {
   position: fixed;
+  top: 0;
+  left: 0;
   border-radius: 10px;
   box-shadow:
     0 0 0 2px var(--cyan),
     0 0 0 9999px #030810b8;
-  transition: all 0.35s var(--ease);
+  will-change: transform;
+  animation: tour-fade 0.25s var(--ease);
+}
+.tour-spotlight.glide {
+  transition:
+    transform 0.4s var(--ease),
+    width 0.4s var(--ease),
+    height 0.4s var(--ease);
+}
+@keyframes tour-fade {
+  from {
+    opacity: 0;
+  }
 }
 .tour-dim {
   position: fixed;
@@ -856,9 +872,20 @@
   border-radius: 10px;
   padding: 18px 20px 16px;
   box-shadow: 0 18px 50px #000a;
+  transition: opacity 0.2s var(--ease);
+}
+.tour-card.placed {
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+.tour-card.glide {
   transition:
-    top 0.35s var(--ease),
-    left 0.35s var(--ease);
+    transform 0.4s var(--ease),
+    opacity 0.2s var(--ease);
+}
+.tour-card.pending {
+  opacity: 0;
 }
 .tour-card:focus {
   outline: none;
@@ -1008,8 +1035,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .tour-spotlight,
-  .tour-card {
+  .tour-spotlight.glide,
+  .tour-card,
+  .tour-card.glide {
     transition: none;
+    animation: none;
   }
   .tour-progress b {
     animation: none;
