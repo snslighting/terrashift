@@ -54,6 +54,11 @@ export const credits: { source: string; use: string; terms: string }[] = [
     terms: "OpenStreetMap data; see openstreetmap.org/copyright.",
   },
   {
+    source: "Natural Earth",
+    use: "Country borders and the names of countries, cities, seas, lakes and rivers on the map",
+    terms: "Public domain; naturalearthdata.com/about/terms-of-use.",
+  },
+  {
     source: "Esri World Imagery and World Topo Map",
     use: "Satellite and terrain basemaps",
     terms: "Context tile services with on-map attribution.",

@@ -24,6 +24,7 @@ const types = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".bin": "application/octet-stream",
+  ".pbf": "application/x-protobuf",
   ".md": "text/plain",
   ".txt": "text/plain",
 };
@@ -301,6 +302,41 @@ try {
     await page.getByText("This perspective isn’t here.").waitFor();
   });
 
+  await check("map draws borders and place names from the site's own files, the tag button hides them, no coverage dots", async () => {
+    const loaded = [];
+    const watch = (r) => loaded.push([new URL(r.url()).pathname, r.status()]);
+    page.on("response", watch);
+    try {
+      await page.goto(origin + base + "explore/");
+      await page.locator(".maplibregl-canvas").waitFor();
+      const got = (part) => loaded.some(([path, status]) => path.includes(part) && status === 200);
+      for (let i = 0; i < 40 && !(got("geo/places.json") && got("geo/borders.json") && got(".pbf")); i++)
+        await page.waitForTimeout(250);
+      for (const part of ["geo/places.json", "geo/borders.json", "geo/rivers.json", "glyphs/DM%20Sans%20SemiBold/0-255.pbf"])
+        assert.ok(got(part), `${part} not loaded: ${JSON.stringify(loaded.filter(([p]) => /geo|glyphs/.test(p)))}`);
+      // Glyph files exist for every range the names need (a missing one would be a 404 here).
+      assert.deepEqual(loaded.filter(([path, status]) => /glyphs|geo\//.test(path) && status !== 200), []);
+      assert.ok(!loaded.some(([path]) => path.includes("coverage.json")), "coverage dots still loaded");
+      // With the view still, the picture only changes when the names are switched.
+      const map = page.locator(".map-canvas");
+      const shot = async () => {
+        await page.waitForTimeout(1200);
+        return map.screenshot({ animations: "disabled" });
+      };
+      const on = await shot();
+      assert.ok(on.equals(await shot()), "map did not settle");
+      const tag = page.getByRole("button", { name: "Hide place names" });
+      assert.equal(await tag.getAttribute("aria-pressed"), "true");
+      await tag.click();
+      const off = await shot();
+      assert.ok(!off.equals(on), "hiding names changed nothing");
+      await page.getByRole("button", { name: "Show place names" }).click();
+      assert.ok((await shot()).equals(on), "names did not come back the same");
+    } finally {
+      page.off("response", watch);
+    }
+  });
+
   await check("a sample place opens NASA's preview on the map and scrubs through dates", async () => {
     await page.goto(origin + base + "explore/");
     await page.locator(".place-tile", { hasText: "Pantanal" }).click();
@@ -558,16 +594,17 @@ try {
     await phone.close();
   });
 
-  await check("390 and 768 px: Explorer, Learn and About fit, with 24 px targets and no overlapping map panels", async () => {
+  await check("390 and 768 px: Explorer, Analysis, Learn and About fit, with 24 px targets and no overlapping map panels", async () => {
     for (const width of [390, 768]) {
       const ctx = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 1024 }, isMobile: true, hasTouch: true });
       await ctx.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
       const p = await ctx.newPage();
       p.on("pageerror", (e) => errors.push(e.message));
-      for (const route of ["explore/?preset=pantanal", "learn/", "about/"]) {
+      for (const route of ["explore/?preset=pantanal", "analysis/", "learn/", "about/"]) {
         await p.goto(origin + base + route);
         if (route.startsWith("explore")) await p.locator(".map-ribbon.preview").waitFor({ timeout: 15000 });
         else await p.locator("main h1").first().waitFor();
+        if (route.startsWith("analysis")) await p.locator(".maplibregl-canvas").waitFor();
         await p.waitForTimeout(500);
         const r = await p.evaluate(() => {
           const shown = (e) => {

@@ -19,10 +19,12 @@ import {
   Layers,
   Compass,
   ChevronDown,
+  Tag,
 } from "lucide-react";
 import { asset, bboxFeature, productCollection } from "../lib/api";
 import { normalizeLongitude } from "../lib/science";
 import { gibsTiles, opticalAvailable } from "../lib/optical";
+import { addPlaceLayers, setPlaceLabels } from "../lib/mapLabels";
 export { gibsTiles } from "../lib/optical";
 import type {
   BBox,
@@ -89,6 +91,7 @@ export default function MapViewer(props: Props) {
     // The optical layer is addressed by day: a missing day is not an offline basemap.
     [opticalMissing, setOpticalMissing] = useState(false),
     offlineRef = useRef(false),
+    [labels, setLabels] = useState(true),
     [mode, setMode] = useState<"rectangle" | "polygon" | null>(null),
     [points, setPoints] = useState<Position[]>([]),
     [coords, setCoords] = useState("WORLDWIDE · WGS84"),
@@ -119,12 +122,14 @@ export default function MapViewer(props: Props) {
         },
         style: {
           version: 8,
+          // Shipped with the site (DM Sans), for the place names in lib/mapLabels.ts.
+          glyphs: new URL(asset("glyphs/"), location.href).href + "{fontstack}/{range}.pbf",
           sources: {
             geographic: {
               type: "raster",
               tiles: ["a", "b", "c", "d"].map(
                 (k) =>
-                  `https://${k}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`,
+                  `https://${k}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png`,
               ),
               tileSize: 256,
               attribution:
@@ -213,44 +218,6 @@ export default function MapViewer(props: Props) {
           },
           "geographic",
         );
-        // Where NISAR has observed (public catalog snapshot), shown when zoomed out.
-        fetch(asset("evidence/coverage.json"))
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d: { cells: [number, number, number, string, string][] } | null) => {
-            if (!d || cancelled || !m.getStyle()) return;
-            m.addSource("nisar-coverage", {
-              type: "geojson",
-              data: {
-                type: "FeatureCollection",
-                features: d.cells.map(([lon, lat, n, first, last]) => ({
-                  type: "Feature",
-                  properties: { n, first, last },
-                  geometry: { type: "Point", coordinates: [lon, lat] },
-                })),
-              },
-            });
-            m.addLayer(
-              {
-                id: "nisar-coverage",
-                type: "circle",
-                source: "nisar-coverage",
-                maxzoom: 5.5,
-                paint: {
-                  "circle-color": "#55d9f3",
-                  "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 1.2, 5, 3.5],
-                  "circle-opacity": ["interpolate", ["linear"], ["get", "n"], 1, 0.25, 30, 0.8],
-                  "circle-blur": 0.4,
-                },
-              },
-              // Above every basemap (live or built-in), below search footprints and areas.
-              m.getLayer("coverage-fill") ? "coverage-fill" : undefined,
-            );
-          })
-          .catch(() => {});
-        m.addSource("outlines", {
-          type: "geojson",
-          data: new URL(asset("geo/countries.json"), location.href).href,
-        });
         // A 10-degree graticule gives the offline map a sense of place and scale.
         const lines: GeoJSON.Feature[] = [];
         for (let lon = -180; lon <= 180; lon += 10)
@@ -278,15 +245,6 @@ export default function MapViewer(props: Props) {
             type: "line",
             source: "graticule",
             paint: { "line-color": "#9fc4e0", "line-width": 0.5, "line-opacity": 0.18 },
-          },
-          "geographic",
-        );
-        m.addLayer(
-          {
-            id: "offline-borders",
-            type: "line",
-            source: "outlines",
-            paint: { "line-color": "#e3f1ff", "line-width": 0.6, "line-opacity": 0.45 },
           },
           "geographic",
         );
@@ -366,6 +324,9 @@ export default function MapViewer(props: Props) {
             "circle-stroke-color": "#8878ff",
           },
         });
+        // Borders and rivers beneath the footprints and measurements; names above them,
+        // beneath the area of interest and the drawing.
+        addPlaceLayers(m, (file) => new URL(asset(file), location.href).href, "coverage-fill", "aoi-fill");
         setReady(true);
       });
       m.on("mousemove", (e) => {
@@ -430,7 +391,7 @@ export default function MapViewer(props: Props) {
       let failures = 0;
       const basemaps = new Set(["satellite", "terrain", "geographic", "optical"]);
       m.on("error", (e) => {
-        // Basemap tiles failing is not fatal: the offline outlines show instead.
+        // Basemap tiles failing is not fatal: the built-in Blue Marble shows instead.
         const sourceId = (e as { sourceId?: string }).sourceId;
         if (sourceId === "optical") {
           setOpticalMissing(true);
@@ -440,6 +401,8 @@ export default function MapViewer(props: Props) {
           setOfflineBasemap(true);
           return;
         }
+        // Place names are context: if they cannot load, the map works without them.
+        if (sourceId?.startsWith("place-")) return;
         if (++failures >= 3)
           setError(
             "Some map resources are unavailable. Evidence and search remain accessible.",
@@ -721,6 +684,13 @@ export default function MapViewer(props: Props) {
     if (!m) return;
     m.getCanvas().style.cursor = mode ? "crosshair" : "";
   }, [mode]);
+  // Esri's terrain map prints its own names; ours would double them, unless its tiles are offline.
+  const ownNames = (props.basemap ?? "satellite") === "terrain" && !offlineBasemap;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready) return;
+    setPlaceLabels(m, labels && !ownNames);
+  }, [labels, ownNames, ready]);
   const fit = () => {
     const box = props.focus ?? props.selection?.bbox;
     if (box)
@@ -781,6 +751,15 @@ export default function MapViewer(props: Props) {
           aria-label="Fit selected area"
         >
           <Crosshair size={17} />
+        </button>
+        <button
+          onClick={() => setLabels(!labels)}
+          aria-pressed={labels}
+          aria-label={labels ? "Hide place names" : "Show place names"}
+          title={labels ? "Hide place names" : "Show place names"}
+          className={labels ? "active" : ""}
+        >
+          <Tag size={17} />
         </button>
         {props.onSelect && (
           <>
