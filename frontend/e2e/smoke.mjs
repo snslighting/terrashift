@@ -430,10 +430,11 @@ try {
   await check("about page: team, independence line and credits; no placeholder text", async () => {
     await page.goto(origin + base + "about/");
     await page.locator(".team-list li").first().waitFor();
-    const members = await page.locator(".team-list li").allInnerTexts();
+    // textContent: the names and roles as written (CSS shows the roles in capitals).
+    const members = await page.locator(".team-list li").evaluateAll((lis) => lis.map((li) => li.textContent.replace(/\s+/g, " ")));
     assert.equal(members.length, 6);
-    assert.match(members[0], /Sharifjon Farmonov\s+Product Manager/);
-    assert.match(members[5], /Amiriddin Ramazonov\s+Spokesman/);
+    assert.match(members[0], /Sharifjon Farmonov ?Product Manager/);
+    assert.match(members[5], /Amiriddin Ramazonov ?Spokesman/);
     // Every member has a portrait, and each one loads.
     await page.locator(".team-list").scrollIntoViewIfNeeded();
     assert.equal(await page.locator(".team-list img").count(), 6);
