@@ -4,7 +4,7 @@ import { ArrowLeftRight, ArrowRight, Pause, Play, RefreshCw, X, ZoomIn, ZoomOut 
 import { asset } from "../lib/api";
 import { holdPreview, loadPreview, previewChoices, footprintBounds, footprintRing, PREFETCH_COUNT, type PreviewImage } from "../lib/browse";
 import { prefetchOrder } from "../lib/prefetch";
-import { clampView, HOME, zoomView, type View } from "../lib/zoomView";
+import { clampView, HOME, MAX_ZOOM, zoomView, type View } from "../lib/zoomView";
 import { startPreview, stateFor, type PreviewState } from "../lib/previewRequest";
 import { geometries, placeStats, timeline } from "../lib/catalogStats";
 import { ladder, sameGeometry, trustLabels, type Trust } from "../lib/evidence";
@@ -306,7 +306,8 @@ export function TimeScrubber({
           aria-valuetext={productDates(current)}
         />
       </label>
-      <button className="scrubber-compare" onClick={onCompare}>
+      {/* The label stays for screen readers on phones, where the text is hidden to save room. */}
+      <button className="scrubber-compare" onClick={onCompare} aria-label="Compare two dates">
         <ArrowLeftRight size={15} />
         <span>Compare two dates</span>
       </button>
@@ -395,22 +396,58 @@ export function SwipeCompare({
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
   }, [options.length]);
+  // Two fingers on the stage pinch-zoom around their midpoint and pan as they move.
+  const pointers = useRef(new Map<number, { x: number; y: number }>()),
+    pinch = useRef<{ d: number; mx: number; my: number; view: View } | null>(null);
+  const pinchStart = (el: HTMLElement) => {
+    const [p, q] = [...pointers.current.values()],
+      r = el.getBoundingClientRect();
+    pinch.current = {
+      d: Math.hypot(q.x - p.x, q.y - p.y) || 1,
+      mx: (p.x + q.x) / 2 - r.left,
+      my: (p.y + q.y) / 2 - r.top,
+      view,
+    };
+    drag.current = null;
+  };
   const pointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget,
       r = el.getBoundingClientRect(),
       nearLine = mode === "swipe" && Math.abs(e.clientX - (r.left + (r.width * split) / 100)) < 28;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try {
+      el.setPointerCapture?.(e.pointerId);
+    } catch {
+      // A pointer that is already gone cannot be captured; the gesture still works without it.
+    }
+    if (pointers.current.size === 2) return pinchStart(el);
+    if (pointers.current.size > 2) return;
     drag.current = { kind: nearLine ? "split" : "pan", x: e.clientX, y: e.clientY, view };
-    el.setPointerCapture?.(e.pointerId);
   };
   const pointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const r = e.currentTarget.getBoundingClientRect(),
+      z = pinch.current;
+    if (z && pointers.current.size === 2) {
+      const [p, q] = [...pointers.current.values()],
+        k = Math.min(MAX_ZOOM, Math.max(1, z.view.k * (Math.hypot(q.x - p.x, q.y - p.y) / z.d))),
+        ratio = k / z.view.k,
+        mx = (p.x + q.x) / 2 - r.left,
+        my = (p.y + q.y) / 2 - r.top;
+      setView(clampView({ k, x: mx - (z.mx - z.view.x) * ratio, y: my - (z.my - z.view.y) * ratio }, r.width, r.height));
+      return;
+    }
     const d = drag.current;
     if (!d) return;
-    const r = e.currentTarget.getBoundingClientRect();
     if (d.kind === "split") setSplit(Math.round(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100))));
     else setView(clampView({ k: d.view.k, x: d.view.x + e.clientX - d.x, y: d.view.y + e.clientY - d.y }, r.width, r.height));
   };
-  const pointerUp = () => {
-    drag.current = null;
+  const pointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointers.current.delete(e.pointerId);
+    pinch.current = null;
+    // Lifting one finger of a pinch leaves the other panning from where it is, without a jump.
+    const rest = [...pointers.current.values()][0];
+    drag.current = rest && pointers.current.size === 1 ? { kind: "pan", x: rest.x, y: rest.y, view } : null;
   };
   const panStyle = { transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` };
   useEffect(() => {
@@ -505,7 +542,7 @@ export function SwipeCompare({
           <div
             ref={stage}
             className="swipe-stage"
-            style={{ aspectRatio: String(aspect || 1), width: `min(100%, ${(72 * (aspect || 1)).toFixed(1)}vh)` }}
+            style={{ aspectRatio: String(aspect || 1), width: `min(100%, ${(72 * (aspect || 1)).toFixed(1)}dvh)` }}
             onPointerDown={pointerDown}
             onPointerMove={pointerMove}
             onPointerUp={pointerUp}
@@ -583,7 +620,7 @@ export function SwipeCompare({
             </p>
           )}
           <p className="tiny swipe-hint">
-            Scroll or use the buttons to zoom, drag to move the picture{mode === "swipe" ? ", drag the handle to swipe" : ""}.
+            Scroll, pinch or use the buttons to zoom, drag to move the picture{mode === "swipe" ? ", drag the handle to swipe" : ""}.
           </p>
           </>
         )}

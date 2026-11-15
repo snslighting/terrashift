@@ -2122,6 +2122,65 @@
 .swipe-stage:has(input:focus-visible) {
   outline: 2px solid var(--cyan);
 }
+/* Compare dialog on phones and tablets: dynamic viewport height (the browser bar comes and goes),
+   safe-area padding for notches, and 44 px tap targets for every control. */
+.swipe-dialog {
+  max-height: calc(100dvh - 40px);
+}
+/* .swipe-dialog prefix: outranks the phone rule that gives Explorer buttons 32 px. */
+.swipe-dialog .swipe-tools .segmented button,
+.swipe-dialog .swipe-zoom button {
+  min-height: 44px;
+}
+.swipe-dialog .swipe-zoom button {
+  min-width: 44px;
+  justify-content: center;
+}
+.swipe-dialog .dialog-x {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  right: 8px;
+  top: 8px;
+}
+.swipe-pickers select {
+  min-height: 44px;
+}
+@media (max-width: 720px) {
+  .modal-backdrop:has(.swipe-dialog) {
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right))
+      max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+  .swipe-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    padding: 14px 12px;
+  }
+  .swipe-dialog h2 {
+    margin: 4px 0 10px;
+    padding-right: 44px;
+  }
+  .swipe-pickers {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .swipe-pickers label {
+    min-width: 140px;
+  }
+  .swipe-tools {
+    gap: 8px;
+  }
+  .swipe-tools .segmented {
+    flex: 1 1 auto;
+  }
+  .swipe-tools .segmented button {
+    flex: 1;
+  }
+  .swipe-zoom {
+    flex-wrap: wrap;
+  }
+}
 .acq-calendar {
   margin: 12px 0;
 }

@@ -638,6 +638,44 @@ try {
     }
   });
 
+  await check("phone: the compare dialog fits, has 44 px controls and pinch-zooms", async () => {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await phone.route(/^https:\/\/(?!127\.0\.0\.1)/, stub);
+    const p = await phone.newPage();
+    p.on("pageerror", (e) => errors.push(e.message));
+    await p.goto(origin + base + "explore/?preset=pantanal");
+    // 30 s: on a cold run the first phone preview can take longer than the other checks allow.
+    await p.locator(".map-ribbon.preview").waitFor({ timeout: 30000 });
+    await p.getByRole("button", { name: /Compare two dates/ }).click();
+    await p.waitForFunction(() => document.querySelectorAll(".swipe-layer canvas").length === 2);
+    const r = await p.evaluate(() => {
+      const d = document.querySelector(".swipe-dialog").getBoundingClientRect();
+      const small = [...document.querySelectorAll(".swipe-dialog button, .swipe-dialog select")]
+        .filter((e) => e.getBoundingClientRect().height < 44)
+        .map((e) => `${(e.getAttribute("aria-label") || e.textContent).trim()} (${Math.round(e.getBoundingClientRect().height)} px, min ${getComputedStyle(e).minHeight}, box ${getComputedStyle(e).boxSizing})`);
+      return { left: d.left, right: d.right, sideways: document.documentElement.scrollWidth - innerWidth, small };
+    });
+    assert.ok(r.left >= 0 && r.right <= 390, `dialog spans ${r.left}..${r.right}`);
+    assert.ok(r.sideways <= 1, `sideways scroll ${r.sideways}px`);
+    assert.deepEqual(r.small, [], "controls under 44 px");
+    // Two fingers move apart in the middle of the stage: the picture zooms in.
+    await p.evaluate(() => {
+      const s = document.querySelector(".swipe-stage"), b = s.getBoundingClientRect(),
+        cx = b.left + b.width * 0.3, cy = b.top + b.height / 2;
+      const fire = (type, id, x) => s.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", clientX: x, clientY: cy, bubbles: true }));
+      fire("pointerdown", 11, cx - 15);
+      fire("pointerdown", 12, cx + 15);
+      fire("pointermove", 12, cx + 75);
+      fire("pointerup", 12, cx + 75);
+      fire("pointerup", 11, cx - 15);
+    });
+    const zoom = await p.locator(".swipe-zoom [aria-live]").innerText();
+    assert.notEqual(zoom, "1.0×", "pinch did not zoom");
+    await p.keyboard.press("Escape");
+    assert.equal(await p.locator(".swipe-dialog").count(), 0);
+    await phone.close();
+  });
+
   await check("no uncaught page errors", async () => {
     assert.deepEqual(errors, []);
   });
