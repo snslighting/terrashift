@@ -1334,6 +1334,10 @@
   backdrop-filter: blur(6px);
   padding: 10px 12px;
   border-radius: 6px;
+  /* Up and to the right, into the free space beside the globe, so it covers less of the Earth.
+     A transform keeps each screen width's own position rule and just shifts from there; the
+     sideways shift grows with the free space (none below about 1200 px, where there is none). */
+  transform: translate(clamp(0px, calc((100vw - 1200px) / 2), 120px), -56px);
 }
 .key-dot.quicklook {
   background: #b9adff;
