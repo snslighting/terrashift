@@ -678,6 +678,40 @@ try {
     await phone.close();
   });
 
+  await check("language switch: English by default, Uzbek and Russian interface, remembered, no sideways scroll", async () => {
+    for (const width of [390, 768, 1440]) {
+      const ctx = await browser.newContext({ viewport: { width, height: width === 1440 ? 950 : 844 }, isMobile: width < 1000, hasTouch: width < 1000 });
+      await ctx.route(/^https:\/\/(?!127\.0\.0\.1)/, (route) => route.fulfill({ status: 204, body: "" }));
+      const p = await ctx.newPage();
+      p.on("pageerror", (e) => errors.push(e.message));
+      await p.goto(origin + base);
+      const picker = p.locator("select.lang-switch");
+      assert.equal(await picker.inputValue(), "en");
+      assert.equal(await p.evaluate(() => document.documentElement.lang), "en");
+      const box = await picker.boundingBox();
+      assert.ok(box && box.height >= 24 && box.width >= 24, `language picker ${JSON.stringify(box)}`);
+      for (const [lang, title, explorer] of [["uz", "Dalalar o‘zgaradi.", "Xarita"], ["ru", "Поля меняются.", "Карта"]]) {
+        await picker.selectOption(lang);
+        await p.locator(".hero h1", { hasText: title }).waitFor();
+        assert.equal(await p.evaluate(() => document.documentElement.lang), lang);
+        assert.equal(await p.locator(".site-header nav a").first().textContent(), explorer);
+        for (const route of ["", "explore/", "about/"]) {
+          await p.goto(origin + base + route);
+          await p.locator("main").first().waitFor();
+          await p.waitForTimeout(300);
+          const wide = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+          assert.ok(wide <= 1, `${lang} ${route || "home"} at ${width}px scrolls sideways by ${wide}px`);
+        }
+        // Remembered after a reload.
+        assert.equal(await p.locator("select.lang-switch").inputValue(), lang);
+        await p.goto(origin + base);
+      }
+      await p.locator("select.lang-switch").selectOption("en");
+      await p.locator(".hero h1", { hasText: "Fields turn." }).waitFor();
+      await ctx.close();
+    }
+  });
+
   await check("no uncaught page errors", async () => {
     assert.deepEqual(errors, []);
   });

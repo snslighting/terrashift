@@ -21,6 +21,7 @@ import { ArrowUpRight, CircleHelp, Menu, X } from "lucide-react";
 import { TourProvider, useTour } from "./components/Tour";
 import Ambient from "./components/Ambient";
 import { AppContext } from "./lib/context";
+import { LangProvider, LangSwitch, useLang } from "./lib/i18n";
 import { loadCatalog } from "./lib/api";
 import type { Catalog, Selection } from "./lib/types";
 import { Logo, Footer, Skeleton, Empty } from "./components/UI";
@@ -49,36 +50,42 @@ class ErrorBoundary extends Component<
   }
   render() {
     return this.state.failed ? (
-      <main className="content-page">
-        <Empty title="This view could not load.">
-          Try again, or refresh the page. No substitute scientific results are
-          generated.
-        </Empty>
-        <div className="hero-actions">
-          <button className="button" onClick={() => this.setState({ failed: false })}>
-            Try again
-          </button>
-          <button className="button secondary" onClick={() => location.reload()}>
-            Refresh TerraShift
-          </button>
-        </div>
-      </main>
+      <Failed retry={() => this.setState({ failed: false })} />
     ) : (
       this.props.children
     );
   }
 }
+function Failed({ retry }: { retry: () => void }) {
+  const { t } = useLang();
+  return (
+    <main className="content-page">
+      <Empty title={t("This view could not load.")}>
+        {t("Try again, or refresh the page. No substitute scientific results are generated.")}
+      </Empty>
+      <div className="hero-actions">
+        <button className="button" onClick={retry}>
+          {t("Try again")}
+        </button>
+        <button className="button secondary" onClick={() => location.reload()}>
+          {t("Refresh TerraShift")}
+        </button>
+      </div>
+    </main>
+  );
+}
 function TourButton() {
-  const { start, active } = useTour();
+  const { start, active } = useTour(),
+    { t } = useLang();
   return (
     <button
       className="tour-launch"
       onClick={() => start(false)}
       aria-pressed={active}
-      aria-label="Take the guided tour"
+      aria-label={t("Take the guided tour")}
     >
       <CircleHelp size={16} />
-      <span>Tour</span>
+      <span>{t("Tour")}</span>
     </button>
   );
 }
@@ -97,6 +104,7 @@ function App() {
     [selection, setSelection] = useState<Selection>(),
     [menu, setMenu] = useState(false),
     location = useLocation(),
+    { t } = useLang(),
     reduced = useReducedMotion(),
     // GitHub Pages serves each route as a folder (/explore/), so normalize trailing slashes.
     path = location.pathname.replace(/(.)\/+$/, "$1"),
@@ -109,20 +117,23 @@ function App() {
   useEffect(() => {
     setMenu(false);
     window.scrollTo({ top: 0, behavior: "instant" });
-    document.title = `${path === "/" ? "See the Earth change" : (links.find(([p]) => p === path)?.[1] ?? "Earth observation")} — TerraShift`;
   }, [path]);
+  // Separate from the effect above, so switching language does not scroll or close the menu.
+  useEffect(() => {
+    document.title = `${t(path === "/" ? "See the Earth change" : (links.find(([p]) => p === path)?.[1] ?? "Earth observation"))} — TerraShift`;
+  }, [path, t]);
   return (
     <AppContext.Provider value={{ catalog, error, selection, setSelection }}>
       <Ambient />
       <a href="#main-content" className="skip-link">
-        Skip to content
+        {t("Skip to content")}
       </a>
       <header className="site-header">
         <Logo />
-        <nav className={menu ? "open" : ""} aria-label="Main navigation">
+        <nav className={menu ? "open" : ""} aria-label={t("Main navigation")}>
           {links.map(([to, label]) => (
             <NavLink to={to} key={to}>
-              {label}
+              {t(label)}
             </NavLink>
           ))}
         </nav>
@@ -133,14 +144,15 @@ function App() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open source
+          {t("Open source")}
           <ArrowUpRight size={14} />
         </a>
+        <LangSwitch />
         <button
           className="mobile-menu"
           onClick={() => setMenu(!menu)}
           aria-expanded={menu}
-          aria-label={menu ? "Close navigation" : "Open navigation"}
+          aria-label={t(menu ? "Close navigation" : "Open navigation")}
         >
           {menu ? <X /> : <Menu />}
         </button>
@@ -158,7 +170,7 @@ function App() {
               <Suspense
                 fallback={
                   <div className="page-loading">
-                    <Skeleton label="Opening a new perspective…" />
+                    <Skeleton label={t("Opening a new perspective…")} />
                   </div>
                 }
               >
@@ -175,11 +187,11 @@ function App() {
                     path="*"
                     element={
                       <main className="content-page">
-                        <Empty title="This perspective isn’t here.">
-                          Return to the explorer or the home page.
+                        <Empty title={t("This perspective isn’t here.")}>
+                          {t("Return to the explorer or the home page.")}
                         </Empty>
                         <Link to="/explore" className="button">
-                          Open explorer
+                          {t("Open explorer")}
                         </Link>
                       </main>
                     }
@@ -200,15 +212,19 @@ createRoot(document.getElementById("root")!).render(
         (no per-route folders); GitHub Pages uses normal paths. */}
     {import.meta.env.VITE_HASH_ROUTER ? (
       <HashRouter>
-        <TourProvider>
-          <App />
-        </TourProvider>
+        <LangProvider>
+          <TourProvider>
+            <App />
+          </TourProvider>
+        </LangProvider>
       </HashRouter>
     ) : (
       <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <TourProvider>
-          <App />
-        </TourProvider>
+        <LangProvider>
+          <TourProvider>
+            <App />
+          </TourProvider>
+        </LangProvider>
       </BrowserRouter>
     )}
   </React.StrictMode>,

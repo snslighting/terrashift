@@ -2122,6 +2122,26 @@
 .swipe-stage:has(input:focus-visible) {
   outline: 2px solid var(--cyan);
 }
+/* Cyrillic letters are wider: the Russian headline is set a little smaller so each line stays on one line. */
+html:lang(ru) .hero-copy h1 > span {
+  font-size: 0.86em;
+}
+/* Language picker in the header: compact, 32 px tall (above the 24 px minimum), works by keyboard. */
+.lang-switch {
+  min-height: 32px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: #c7d6e4;
+  background: #0a1729;
+  border: 1px solid #ffffff26;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lang-switch:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
 /* Compare dialog on phones and tablets: dynamic viewport height (the browser bar comes and goes),
    safe-area padding for notches, and 44 px tap targets for every control. */
 .swipe-dialog {

@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useLang } from "../lib/i18n";
 import { ArrowLeft, ArrowRight, Pause, Play, X } from "lucide-react";
 
 /**
@@ -218,6 +219,7 @@ const AUTOPLAY_MS = 8000;
 const INVITE_MS = 12000;
 
 export function TourProvider({ children }: { children: ReactNode }) {
+  const { t } = useLang();
   const [step, setStep] = useState<number | null>(null),
     [steps, setSteps] = useState<TourStep[]>(tourSteps),
     [autoplay, setAutoplay] = useState(false),
@@ -268,12 +270,12 @@ export function TourProvider({ children }: { children: ReactNode }) {
         />
       )}
       {invite && step === null && (
-        <div className="tour-invite" role="dialog" aria-label="Take the tour">
-          <strong>New to TerraShift?</strong>
-          <span>A 90-second tour shows what the radar found and how to read it.</span>
+        <div className="tour-invite" role="dialog" aria-label={t("Take the tour")}>
+          <strong>{t("New to TerraShift?")}</strong>
+          <span>{t("A 90-second tour shows what the radar found and how to read it.")}</span>
           <div>
             <button className="button" onClick={() => start(false)}>
-              Take the tour
+              {t("Take the tour")}
             </button>
             <button
               className="text-button"
@@ -282,7 +284,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
                 setInvite(false);
               }}
             >
-              Not now
+              {t("Not now")}
             </button>
           </div>
         </div>

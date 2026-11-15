@@ -16,6 +16,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { useTour } from "../components/Tour";
+import { useLang } from "../lib/i18n";
 import { Button, Eyebrow, Reveal, SourceLink, StatusBadge } from "../components/UI";
 import { useApp, useGrids } from "../lib/context";
 import { Raster } from "../components/Raster";
@@ -64,6 +65,7 @@ const Globe = lazy(() => import("../components/Globe"));
 export default function Home() {
   const navigate = useNavigate(),
     tour = useTour(),
+    { t, lang } = useLang(),
     { catalog } = useApp(),
     cases = catalog?.cases ?? [],
     hero = useRef<HTMLDivElement>(null),
@@ -102,7 +104,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            <Eyebrow>NASA–ISRO NISAR / EARTH OBSERVATION</Eyebrow>
+            <Eyebrow>{t("NASA–ISRO NISAR / EARTH OBSERVATION")}</Eyebrow>
           </motion.div>
           <h1>
             {["Fields turn.", "Faults slip.", "Now you can", "see it change."].map(
@@ -118,7 +120,7 @@ export default function Home() {
                   }}
                   className={i > 1 ? "hero-light" : ""}
                 >
-                  {line}
+                  {t(line)}
                 </motion.span>
               ),
             )}
@@ -128,8 +130,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5 }}
           >
-            Real NISAR radar, through cloud and darkness, turned into maps of
-            farm activity, earthquakes and sinking ground.
+            {t("Real NISAR radar, through cloud and darkness, turned into maps of farm activity, earthquakes and sinking ground.")}
           </motion.p>
           <motion.div
             className="hero-actions"
@@ -137,27 +138,34 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.65 }}
           >
-            <Button to="/discoveries">See what changed</Button>
+            <Button to="/discoveries">{t("See what changed")}</Button>
             <Button to="/explore" secondary>
-              Explore anywhere
+              {t("Explore anywhere")}
             </Button>
             <button className="text-button hero-demo" onClick={() => tour.start(true, "demo")}>
               <PlayCircle size={17} />
-              Watch the 90-second demo
+              {t("Watch the 90-second demo")}
             </button>
             <div className="hero-proof">
               <span className="live-dot" />
-              REAL NISAR DATA · {cases.length || "—"} STUDY AREAS ·{" "}
-              {cases.reduce((n, c) => n + c.pairs.length, 0) || "—"} RADAR PAIRS
+              {lang === "en" ? (
+                <>
+                  REAL NISAR DATA · {cases.length || "—"} STUDY AREAS ·{" "}
+                  {cases.reduce((n, c) => n + c.pairs.length, 0) || "—"} RADAR PAIRS
+                </>
+              ) : (
+                // "Label: count" reads correctly in Uzbek and Russian whatever the number.
+                `${t("REAL NISAR DATA")} · ${t("STUDY AREAS")}: ${cases.length || "—"} · ${t("RADAR PAIRS")}: ${cases.reduce((n, c) => n + c.pairs.length, 0) || "—"}`
+              )}
             </div>
           </motion.div>
         </div>
         <div className="hero-bottom">
           <a href="#perspective" className="scroll-cue">
             <ArrowDown size={15} />
-            SCROLL TO DISCOVER
+            {t("SCROLL TO DISCOVER")}
           </a>
-          <span>ONE PLANET. COUNTLESS PERSPECTIVES.</span>
+          <span>{t("ONE PLANET. COUNTLESS PERSPECTIVES.")}</span>
           <div>
             <span>01 — 04</span>
             <i />
@@ -167,7 +175,7 @@ export default function Home() {
         </div>
       </section>
       <div className="mission-strip">
-        <span>POWERED BY EARTH OBSERVATION</span>
+        <span>{t("POWERED BY EARTH OBSERVATION")}</span>
         <strong>
           NASA <small>×</small> ISRO
         </strong>
@@ -184,17 +192,16 @@ export default function Home() {
           SPACE APPS 2026
         </SourceLink>
         <p className="mission-disclaimer">
-          An independent Space Apps project using public NISAR data. Not an
-          official NASA or ISRO product.
+          {t("An independent Space Apps project using public NISAR data. Not an official NASA or ISRO product.")}
         </p>
       </div>
       <section id="perspective" className="home-section perspective-section">
         <Reveal>
-          <Eyebrow>01 / WHAT NISAR CAN SEE</Eyebrow>
+          <Eyebrow>{t("01 / WHAT NISAR CAN SEE")}</Eyebrow>
           <h2>
-            {liveTypes.length ? `${words[liveTypes.length] ?? liveTypes.length} kinds of change.` : "Kinds of change."}
+            {t(liveTypes.length ? `${words[liveTypes.length] ?? liveTypes.length} kinds of change.` : "Kinds of change.")}
             <br />
-            <em>Measured with real data.</em>
+            <em>{t("Measured with real data.")}</em>
           </h2>
         </Reveal>
         <div className="change-grid">
@@ -215,7 +222,7 @@ export default function Home() {
         </div>
         {nextTypes.length > 0 && (
           <Reveal className="change-next">
-            <span>COMING NEXT</span>
+            <span>{t("COMING NEXT")}</span>
             <ul>
               {nextTypes.map((type) => (
                 <li key={type}>
@@ -226,9 +233,7 @@ export default function Home() {
               ))}
             </ul>
             <p>
-              The processing pipeline is built; these appear once real
-              before-and-after products are processed. No map is shown without
-              real data.
+              {t("The processing pipeline is built; these appear once real before-and-after products are processed. No map is shown without real data.")}
             </p>
           </Reveal>
         )}
@@ -236,65 +241,62 @@ export default function Home() {
       <section className="radar-story home-section">
         <div className="radar-visual">
           <RadarDiagram />
-          <span className="radar-caption">CONCEPTUAL ANIMATION · NOT A MEASUREMENT</span>
+          <span className="radar-caption">{t("CONCEPTUAL ANIMATION · NOT A MEASUREMENT")}</span>
         </div>
         <Reveal className="radar-copy">
-          <Eyebrow>02 / A SIGNAL THROUGH THE NOISE</Eyebrow>
+          <Eyebrow>{t("02 / A SIGNAL THROUGH THE NOISE")}</Eyebrow>
           <h2>
-            See through clouds.
+            {t("See through clouds.")}
             <br />
-            <em>Listen to the Earth.</em>
+            <em>{t("Listen to the Earth.")}</em>
           </h2>
           <p>
-            NISAR sends L-band radar pulses and records their echoes. Comparing
-            two visits reveals change three ways: coherence (did the surface
-            change?), phase (did the ground move?) and brightness (did water or
-            vegetation appear or vanish?).
+            {t("NISAR sends L-band radar pulses and records their echoes. Comparing two visits reveals change three ways: coherence (did the surface change?), phase (did the ground move?) and brightness (did water or vegetation appear or vanish?).")}
           </p>
           <div className="radar-facts">
             <div>
               <Radio size={18} />
               <span>
-                Active radar<small>Day and night observations</small>
+                {t("Active radar")}<small>{t("Day and night observations")}</small>
               </span>
             </div>
             <div>
               <ScanLine size={18} />
               <span>
-                Repeat observations
-                <small>Compare actual acquisition pairs</small>
+                {t("Repeat observations")}
+                <small>{t("Compare actual acquisition pairs")}</small>
               </span>
             </div>
             <div>
               <Check size={18} />
               <span>
-                Independent evidence<small>Test candidates against GNSS</small>
+                {t("Independent evidence")}<small>{t("Test candidates against GNSS")}</small>
               </span>
             </div>
           </div>
           <Button to="/science" secondary>
-            How the science works
+            {t("How the science works")}
           </Button>
         </Reveal>
       </section>
       <section className="home-section featured-section">
         <div className="section-heading">
           <Reveal>
-            <Eyebrow>03 / EARTH STORIES</Eyebrow>
+            <Eyebrow>{t("03 / EARTH STORIES")}</Eyebrow>
             <h2>
-              Real places.
+              {t("Real places.")}
               <br />
-              Real change.
+              {t("Real change.")}
             </h2>
           </Reveal>
           <Reveal>
             <p>
-              Each map is made from actual NISAR products,
+              {t("Each map is made from actual NISAR products,")}
               <br />
-              with the limits of each result stated alongside it.
+              {t("with the limits of each result stated alongside it.")}
             </p>
             <Link to="/discoveries" className="text-button">
-              Explore Earth Stories
+              {t("Explore Earth Stories")}
               <ArrowUpRight size={16} />
             </Link>
           </Reveal>
@@ -307,63 +309,58 @@ export default function Home() {
       </section>
       <section className="home-section sample-places-section">
         <Reveal>
-          <Eyebrow>04 / TRY A PLACE</Eyebrow>
-          <h2>One click, real NISAR data.</h2>
+          <Eyebrow>{t("04 / TRY A PLACE")}</Eyebrow>
+          <h2>{t("One click, real NISAR data.")}</h2>
           <p className="section-description">
-            Wetlands, farms, volcanoes, ice and sinking cities. Each opens the explorer with NASA's own
-            preview images for that place, ready to scrub through time.
+            {t("Wetlands, farms, volcanoes, ice and sinking cities. Each opens the explorer with NASA's own preview images for that place, ready to scrub through time.")}
           </p>
         </Reveal>
         <PlaceGallery compact limit={8} />
         <Link to="/discoveries" className="text-button">
-          All sample places
+          {t("All sample places")}
           <ArrowUpRight size={16} />
         </Link>
       </section>
       <section className="home-section world-callout">
         <Reveal>
-          <Eyebrow>05 / YOUR NEXT PERSPECTIVE</Eyebrow>
+          <Eyebrow>{t("05 / YOUR NEXT PERSPECTIVE")}</Eyebrow>
           <h2>
-            Where will
+            {t("Where will")}
             <br />
-            you look <em>next?</em>
+            {t("you look")} <em>{t("next?")}</em>
           </h2>
           <p>
-            Search any location. Discover the real observations.
+            {t("Search any location. Discover the real observations.")}
             <br />
-            Let the evidence tell you what is available.
+            {t("Let the evidence tell you what is available.")}
           </p>
-          <Button to="/explore">Open the worldwide explorer</Button>
+          <Button to="/explore">{t("Open the worldwide explorer")}</Button>
         </Reveal>
         <div className="world-callout-art">
           <Globe2 />
           <div className="coordinate-card">
             <span className="live-dot" />
-            NASA CMR · PUBLIC CATALOG
-            <small>
-              Coverage footprints come from actual product metadata.
-            </small>
+            {t("NASA CMR · PUBLIC CATALOG")}
+            <small>{t("Coverage footprints come from actual product metadata.")}</small>
           </div>
-          <span className="orbit-coord">GLOBAL DISCOVERY / LOCAL EVIDENCE</span>
+          <span className="orbit-coord">{t("GLOBAL DISCOVERY / LOCAL EVIDENCE")}</span>
         </div>
       </section>
       <section className="credibility-strip">
         <Reveal>
-          <Eyebrow>SCIENCE YOU CAN INSPECT</Eyebrow>
+          <Eyebrow>{t("SCIENCE YOU CAN INSPECT")}</Eyebrow>
           <h3>
-            Every map shows its evidence
+            {t("Every map shows its evidence")}
             <br />
-            and its limits.
+            {t("and its limits.")}
           </h3>
         </Reveal>
         <div>
           <p>
-            Each result keeps its dates, product identifier, reference, units
-            and independent GNSS check. Missing observations stay missing, and
-            a failed check is shown, not hidden.
+            {t("Each result keeps its dates, product identifier, reference, units and independent GNSS check. Missing observations stay missing, and a failed check is shown, not hidden.")}
           </p>
           <Link to="/data" className="text-button">
-            Read the methodology
+            {t("Read the methodology")}
             <ArrowUpRight size={16} />
           </Link>
         </div>

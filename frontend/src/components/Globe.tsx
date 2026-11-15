@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Globe2, Rotate3D } from "lucide-react";
 import type * as ThreeTypes from "three";
 import { asset } from "../lib/api";
+import { useLang } from "../lib/i18n";
 import { loadQuickLooks } from "./QuickLooks";
 import type { BBox } from "../lib/types";
 type Three = typeof ThreeTypes;
@@ -153,6 +154,7 @@ export default function Globe({
   areas?: BBox[];
 }) {
   const scene3d = useRef<{ THREE: Three; earth: ThreeTypes.Mesh; group: ThreeTypes.Group }>(null);
+  const { t } = useLang();
   const mount = useRef<HTMLDivElement>(null),
     [fallback, setFallback] = useState(false),
     [loaded, setLoaded] = useState(false);
@@ -582,29 +584,29 @@ export default function Globe({
       {fallback && (
         <div className="globe-fallback">
           <Globe2 size={210} />
-          <p>Earth visualization · use the explorer to choose a location.</p>
+          <p>{t("Earth visualization · use the explorer to choose a location.")}</p>
         </div>
       )}
       <div className="globe-label north">
-        <span>EARTH OBSERVATION</span>
-        <strong>A planet in motion.</strong>
+        <span>{t("EARTH OBSERVATION")}</span>
+        <strong>{t("A planet in motion.")}</strong>
         <small>
-          <i className="key-dot processed" /> Processed by TerraShift
+          <i className="key-dot processed" /> {t("Processed by TerraShift")}
           <br />
-          <i className="key-dot quicklook" /> NASA quick-look shown on this site
+          <i className="key-dot quicklook" /> {t("NASA quick-look shown on this site")}
           <br />
-          <i className="key-dot observed" /> Observed by NISAR (public catalog)
+          <i className="key-dot observed" /> {t("Observed by NISAR (public catalog)")}
         </small>
       </div>
       <div className="globe-label south">
         <span className="live-dot" />
         <span>
-          {loaded ? "NASA BLUE MARBLE · NIGHT LIGHTS" : "PREPARING THE PLANET"}
+          {t(loaded ? "NASA BLUE MARBLE · NIGHT LIGHTS" : "PREPARING THE PLANET")}
         </span>
       </div>
       <div className="globe-drag">
         <Rotate3D size={14} />
-        Drag to rotate · click to explore
+        {t("Drag to rotate · click to explore")}
       </div>
       <div className="orbit-axis">
         N<span />S

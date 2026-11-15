@@ -21,6 +21,7 @@ import { previewImage, downloadCanvas } from "../lib/mapImage";
 import { PREVIEW_TIMEOUT_MS } from "../lib/previewRequest";
 import { FullDataPanel } from "../components/Resources";
 import { useTour } from "../components/Tour";
+import { useLang } from "../lib/i18n";
 import { NON_ENDORSEMENT } from "../lib/resources";
 import type { Basemap } from "../components/MapViewer";
 import {
@@ -117,6 +118,7 @@ function OpticalNote({ date }: { date?: string }) {
 export default function Explorer() {
   const { catalog, selection, setSelection, error: researchError } = useApp();
   const siteTour = useTour();
+  const { t } = useLang();
   const [params, setParams] = useSearchParams(),
     [query, setQuery] = useState(""),
     [places, setPlaces] = useState<Place[]>([]),
@@ -541,10 +543,8 @@ export default function Explorer() {
             <PanelLeftClose size={18} />
           </button>
         </div>
-        <h1>Find your perspective.</h1>
-        <p className="muted">
-          Discover the observations behind a changing planet.
-        </p>
+        <h1>{t("Find your perspective.")}</h1>
+        <p className="muted">{t("Discover the observations behind a changing planet.")}</p>
         <form className="search-field" onSubmit={search}>
           <Search size={18} />
           <input

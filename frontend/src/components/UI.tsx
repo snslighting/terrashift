@@ -11,15 +11,17 @@ import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import type { Status } from "../lib/types";
 import { statuses } from "../lib/science";
+import { useLang } from "../lib/i18n";
 export function Logo() {
+  const { t } = useLang();
   return (
-    <Link to="/" className="brand" aria-label="TerraShift home">
+    <Link to="/" className="brand" aria-label={t("TerraShift home")}>
       <svg viewBox="0 0 40 40" aria-hidden="true">
         <path d="M4 18 20 8l16 10M4 25l16-10 16 10M4 32l16-10 16 10" />
       </svg>
       <span>
         TERRA<span>SHIFT</span>
-        <small>A CHANGING PLANET. A NEW PERSPECTIVE.</small>
+        <small>{t("A CHANGING PLANET. A NEW PERSPECTIVE.")}</small>
       </span>
     </Link>
   );
@@ -109,11 +111,13 @@ export function PageIntro({
   title: string;
   description: string;
 }) {
+  // Only interface wording listed in i18nStrings is translated; a study's own name and headline stay as published.
+  const { t } = useLang();
   return (
     <Reveal className="page-intro">
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Eyebrow>{t(eyebrow)}</Eyebrow>
+      <h1>{t(title)}</h1>
+      <p>{t(description)}</p>
     </Reveal>
   );
 }
@@ -122,10 +126,11 @@ export function Skeleton({
 }: {
   label?: string;
 }) {
+  const { t } = useLang();
   return (
     <div className="skeleton-block" role="status">
       <Orbit className="spin" size={25} />
-      <p>{label}</p>
+      <p>{t(label)}</p>
       <i />
       <i />
       <i />
@@ -148,19 +153,20 @@ export function Empty({
   );
 }
 export function Footer() {
+  const { t } = useLang();
   return (
     <footer className="site-footer">
       <div className="footer-top">
         <Logo />
         <p>
-          Look closer.
+          {t("Look closer.")}
           <br />
-          <strong>The planet has a story to tell.</strong>
+          <strong>{t("The planet has a story to tell.")}</strong>
         </p>
         <Link
           to="/explore"
           className="round-arrow"
-          aria-label="Open global explorer"
+          aria-label={t("Open global explorer")}
         >
           <ArrowUpRight />
         </Link>
@@ -168,14 +174,14 @@ export function Footer() {
       <div className="footer-bottom">
         <span>NASA SPACE APPS 2026 · DANCING WITH THE SARs</span>
         <div>
-          <Link to="/data">Data & methodology</Link>
+          <Link to="/data">{t("Data & methodology")}</Link>
           <SourceLink href="https://github.com/snslighting/terrashift">
-            Open source
+            {t("Open source")}
           </SourceLink>
-          <Link to="/learn">Learn</Link>
-          <Link to="/about">About</Link>
+          <Link to="/learn">{t("Learn")}</Link>
+          <Link to="/about">{t("About")}</Link>
         </div>
-        <span>INDEPENDENT PROJECT · RESEARCH PREVIEW</span>
+        <span>{t("INDEPENDENT PROJECT · RESEARCH PREVIEW")}</span>
       </div>
       <p className="non-endorsement">{NON_ENDORSEMENT}</p>
     </footer>
