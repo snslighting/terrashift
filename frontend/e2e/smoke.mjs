@@ -669,8 +669,10 @@ try {
       fire("pointerup", 12, cx + 75);
       fire("pointerup", 11, cx - 15);
     });
-    const zoom = await p.locator(".swipe-zoom [aria-live]").innerText();
-    assert.notEqual(zoom, "1.0×", "pinch did not zoom");
+    // React re-renders after the events: wait for the zoom label instead of reading it at once.
+    await p
+      .waitForFunction(() => document.querySelector(".swipe-zoom [aria-live]")?.textContent !== "1.0×", null, { timeout: 5000 })
+      .catch(() => assert.fail("pinch did not zoom"));
     await p.keyboard.press("Escape");
     assert.equal(await p.locator(".swipe-dialog").count(), 0);
     await phone.close();
