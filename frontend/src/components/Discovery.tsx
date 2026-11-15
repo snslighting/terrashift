@@ -373,7 +373,7 @@ export function SwipeCompare({
     B = usePreview(b, choice),
     dialog = useRef<HTMLDivElement>(null),
     [view, setView] = useState<View>(HOME),
-    [mode, setMode] = useState<"swipe" | "fade">("swipe"),
+    [mode, setMode] = useState<"swipe" | "fade" | "diff">("swipe"),
     [mix, setMix] = useState(50),
     stage = useRef<HTMLDivElement>(null),
     drag = useRef<{ kind: "pan" | "split"; x: number; y: number; view: View } | null>(null);
@@ -485,6 +485,9 @@ export function SwipeCompare({
               <button className={mode === "fade" ? "active" : ""} aria-pressed={mode === "fade"} onClick={() => setMode("fade")}>
                 Fade
               </button>
+              <button className={mode === "diff" ? "active" : ""} aria-pressed={mode === "diff"} onClick={() => setMode("diff")}>
+                Difference
+              </button>
             </div>
             <div className="swipe-zoom">
               <button onClick={() => zoomBy(0.8)} aria-label="Zoom out" disabled={view.k <= 1}>
@@ -508,23 +511,31 @@ export function SwipeCompare({
             onPointerUp={pointerUp}
             onPointerCancel={pointerUp}
           >
-            {frame && imgB && (
-              <div className="swipe-layer">
-                <div className="swipe-pan" style={panStyle}>
-                  <Placed image={imgB} frame={frame} />
+            <div className={`swipe-layers${mode === "diff" ? " diff" : ""}`}>
+              {frame && imgB && (
+                <div className="swipe-layer">
+                  <div className="swipe-pan" style={panStyle}>
+                    <Placed image={imgB} frame={frame} />
+                  </div>
                 </div>
-              </div>
-            )}
-            {frame && imgA && (
-              <div
-                className="swipe-layer"
-                style={mode === "swipe" ? { clipPath: `inset(0 ${100 - split}% 0 0)` } : { opacity: 1 - mix / 100 }}
-              >
-                <div className="swipe-pan" style={panStyle}>
-                  <Placed image={imgA} frame={frame} />
+              )}
+              {frame && imgA && (
+                <div
+                  className="swipe-layer"
+                  style={
+                    mode === "swipe"
+                      ? { clipPath: `inset(0 ${100 - split}% 0 0)` }
+                      : mode === "fade"
+                        ? { opacity: 1 - mix / 100 }
+                        : { mixBlendMode: "difference" }
+                  }
+                >
+                  <div className="swipe-pan" style={panStyle}>
+                    <Placed image={imgA} frame={frame} />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
             {(!imgA || !imgB) && (
               <div className="swipe-loading">
                 <RefreshCw size={16} className="spin" /> Loading NASA previews…
@@ -563,6 +574,13 @@ export function SwipeCompare({
               />
               <span>{b.date}</span>
             </label>
+          )}
+          {mode === "diff" && (
+            <p className="warning swipe-hint">
+              Difference of the two NASA preview pictures: bright places are where the two pictures differ,
+              dark places are where they look alike. It is a visual clue from colour-scaled previews, not a
+              measurement, and it does not say why a place differs.
+            </p>
           )}
           <p className="tiny swipe-hint">
             Scroll or use the buttons to zoom, drag to move the picture{mode === "swipe" ? ", drag the handle to swipe" : ""}.

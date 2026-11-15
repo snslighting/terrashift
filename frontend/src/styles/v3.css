@@ -2060,6 +2060,15 @@
   pointer-events: none;
   z-index: 6;
 }
+.swipe-layers {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+}
+/* Difference view: the top picture is subtracted from the one below, then brightened so small differences show. */
+.swipe-layers.diff {
+  filter: brightness(2.4) contrast(1.15);
+}
 .swipe-pan {
   position: absolute;
   inset: 0;
