@@ -1986,7 +1986,7 @@
 }
 .swipe-dialog {
   position: relative;
-  width: min(920px, calc(100vw - 32px));
+  width: min(1240px, calc(100vw - 24px));
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   padding: 28px;
@@ -2022,7 +2022,9 @@
 .swipe-stage {
   position: relative;
   width: 100%;
-  max-height: 62vh;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   margin: 0 auto;
   overflow: hidden;
   background: #0b1526;
@@ -2054,8 +2056,59 @@
   width: 100%;
   height: 100%;
   opacity: 0;
-  cursor: ew-resize;
+  /* Dragging is handled by the stage (pan, or the divider near its handle); the slider stays for the keyboard. */
+  pointer-events: none;
   z-index: 6;
+}
+.swipe-pan {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.swipe-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.swipe-zoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: #a5bacb;
+}
+.swipe-zoom button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0a1729;
+  color: #f5f8ff;
+  border: 1px solid #ffffff2a;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.swipe-zoom button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.swipe-mix {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: var(--fs-xs);
+  color: #a5bacb;
+}
+.swipe-mix input {
+  flex: 1;
+}
+.swipe-hint {
+  margin-top: 8px;
 }
 .swipe-stage:has(input:focus-visible) {
   outline: 2px solid var(--cyan);
