@@ -183,10 +183,11 @@ export default function Globe({
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     (async () => {
       try {
-        const THREE = await import("three");
-        const geo = (await fetch(asset("geo/countries.json")).then((r) =>
-          r.json(),
-        )) as GeoJSON.FeatureCollection;
+        // The 3D library and the borders download together, not one after the other.
+        const [THREE, geo] = (await Promise.all([
+          import("three"),
+          fetch(asset("geo/countries.json")).then((r) => r.json()),
+        ])) as [typeof import("three"), GeoJSON.FeatureCollection];
         if (disposed) return;
         const scene = new THREE.Scene(),
           camera = new THREE.PerspectiveCamera(37, 1, 0.1, 100);
@@ -204,6 +205,27 @@ export default function Globe({
           "Interactive 3D Earth: drag to rotate, click to explore a location",
         );
         renderer.domElement.setAttribute("role", "img");
+        // NASA Blue Marble by day, city lights at night, relief for shading (public domain).
+        // The three pictures start downloading now, while the borders are drawn below.
+        const loader = new THREE.TextureLoader();
+        const load = (file: string, srgb = true) =>
+          new Promise<ThreeTypes.Texture>((resolve, reject) =>
+            loader.load(
+              asset(file),
+              (t) => {
+                if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+                t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                resolve(t);
+              },
+              undefined,
+              reject,
+            ),
+          );
+        const maps = Promise.all([
+          load("geo/earth-day.webp"),
+          load("geo/earth-night.webp"),
+          load("geo/earth-relief.webp", false),
+        ]);
         // Borders only, on a transparent layer just above the imagery.
         const surface = document.createElement("canvas");
         surface.width = 4096;
@@ -230,26 +252,7 @@ export default function Globe({
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
-        // NASA Blue Marble by day, city lights at night, relief for shading (public domain).
-        const loader = new THREE.TextureLoader();
-        const load = (file: string, srgb = true) =>
-          new Promise<ThreeTypes.Texture>((resolve, reject) =>
-            loader.load(
-              asset(file),
-              (t) => {
-                if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-                t.anisotropy = renderer.capabilities.getMaxAnisotropy();
-                resolve(t);
-              },
-              undefined,
-              reject,
-            ),
-          );
-        const [dayMap, nightMap, reliefMap] = await Promise.all([
-          load("geo/earth-day.webp"),
-          load("geo/earth-night.webp"),
-          load("geo/earth-relief.webp", false),
-        ]);
+        const [dayMap, nightMap, reliefMap] = await maps;
         if (disposed) return;
         const sun = new THREE.Vector3(-0.92, 0.26, 0.28).normalize();
         const earthMaterial = new THREE.ShaderMaterial({
@@ -305,8 +308,12 @@ export default function Globe({
         earth.add(borders);
         // Where NISAR has observed (public catalog snapshot): faint cyan dots. Metadata
         // only, so they are styled apart from the green, processed study areas.
+        // The catalog snapshot (about 440 kB) waits until the globe is drawn and the browser is idle,
+        // so it never competes with the first picture.
         let coverage: ThreeTypes.Points | undefined;
-        fetch(asset("evidence/coverage.json"))
+        const whenIdle = (fn: () => void) =>
+          "requestIdleCallback" in window ? requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 1500);
+        const loadCoverage = () => fetch(asset("evidence/coverage.json"))
           .then((r) => (r.ok ? r.json() : null))
           .then((d: { cells: [number, number, number, string, string][] } | null) => {
             if (!d || disposed) return;
@@ -337,6 +344,7 @@ export default function Globe({
             earth.add(coverage);
           })
           .catch(() => {});
+        whenIdle(() => !disposed && loadCoverage());
         // NASA quick-look places: small violet markers.
         loadQuickLooks().then((places) => {
           if (disposed) return;
