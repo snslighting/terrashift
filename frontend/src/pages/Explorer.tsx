@@ -12,6 +12,7 @@ import {
   kindLabels,
   productDates,
   usePreview,
+  usePrefetch,
 } from "../components/Discovery";
 import { presetById, type Preset } from "../lib/presets";
 import { timeline } from "../lib/catalogStats";
@@ -194,6 +195,8 @@ export default function Explorer() {
   const series = useMemo(() => (result ? timeline(result.products, kind) : []), [result, kind]);
   const listed = useMemo(() => [...series].reverse(), [series]);
   const { state: preview, retry: retryPreview } = usePreview(pair ? undefined : product, choice);
+  // Other dates of the series are prepared in the background once this one is on screen.
+  usePrefetch(series, pair ? undefined : product, choice, preview.status === "ready");
   const shown =
     preview.status === "ready" ? preview.image : preview.status === "loading" ? preview.thumb : undefined;
   const level = statusLevel(product, pair);

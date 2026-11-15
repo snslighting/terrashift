@@ -486,7 +486,11 @@ const prepareInBrowser: Prepare = async (url, footprint, native, signal, onProgr
   }
 };
 
-const browserLoader = createPreviewLoader(prepareInBrowser);
+/** Computers can hold a few more prepared pictures (about 12 MB each) so neighbouring dates load ahead of time; phones keep the small cache. */
+const roomy = typeof matchMedia === "function" && !matchMedia("(pointer: coarse)").matches;
+/** How many other dates of a timeline are prepared in the background. */
+export const PREFETCH_COUNT = roomy ? 4 : 2;
+const browserLoader = createPreviewLoader(prepareInBrowser, new PreviewCache(roomy ? 7 : MAX_CACHED));
 /** Load one NASA preview (shared, cancellable, cached). */
 export const loadPreview = browserLoader.load;
 /** Keep a preview in memory while it is on screen. */

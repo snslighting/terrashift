@@ -91,6 +91,9 @@ export default function MapViewer(props: Props) {
     // The optical layer is addressed by day: a missing day is not an offline basemap.
     [opticalMissing, setOpticalMissing] = useState(false),
     offlineRef = useRef(false),
+    frontLayer = useRef<"measurement" | "measurement-b">("measurement"),
+    shownKey = useRef(""),
+    fadeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     [labels, setLabels] = useState(true),
     [mode, setMode] = useState<"rectangle" | "polygon" | null>(null),
     [points, setPoints] = useState<Position[]>([]),
@@ -599,8 +602,9 @@ export default function MapViewer(props: Props) {
     if (!m || !ready) return;
     const overlay = props.overlay;
     if (!overlay) {
-      for (const id of ["measurement", "measurement-edge"])
+      for (const id of ["measurement", "measurement-b", "measurement-edge"])
         if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", "none");
+      shownKey.current = "";
       return;
     }
     const coords = overlay.coordinates as [Position, Position, Position, Position];
@@ -630,30 +634,60 @@ export default function MapViewer(props: Props) {
       overlay.outline === false ? "none" : "visible",
     );
     const content = overlay.image ? { image: overlay.image } : { url: overlay.url! };
-    if (m.getSource("measurement")) {
-      (m.getSource("measurement") as ImageSource).updateImage({ ...content, coordinates: coords });
-      m.setLayoutProperty("measurement", "visibility", "visible");
-    } else {
+    const opacity = props.opacity ?? 0.85,
+      resampling = overlay.smooth ? "linear" : "nearest",
+      fade = reduced ? 0 : 450;
+    // Two picture layers take turns, so a new date can dissolve into the old one instead of jumping.
+    const ensure = (id: string) => {
+      if (m.getSource(id)) return;
       // Created empty, then filled, so a bitmap and a URL take the same path.
-      m.addSource("measurement", { type: "image", coordinates: coords });
-      (m.getSource("measurement") as ImageSource).updateImage({ ...content, coordinates: coords });
+      m.addSource(id, { type: "image", coordinates: coords });
+      (m.getSource(id) as ImageSource).updateImage({ ...content, coordinates: coords });
       m.addLayer(
         {
-          id: "measurement",
+          id,
           type: "raster",
-          source: "measurement",
-          paint: {
-            "raster-opacity": props.opacity ?? 0.85,
-            "raster-resampling": "nearest",
-            "raster-fade-duration": reduced ? 0 : 300,
-          },
+          source: id,
+          paint: { "raster-opacity": opacity, "raster-resampling": resampling, "raster-fade-duration": 0 },
         },
         // Beneath footprints, the selected-product outline and the area of interest.
         "coverage-fill",
       );
+    };
+    const front = frontLayer.current,
+      visible = Boolean(m.getLayer(front)) && m.getLayoutProperty(front, "visibility") !== "none";
+    if (visible && fade > 0 && shownKey.current && shownKey.current !== overlay.key) {
+      // A different picture (another date, image or layer): fade it in over the old one.
+      const back = front === "measurement" ? "measurement-b" : "measurement";
+      ensure(back);
+      m.setPaintProperty(back, "raster-opacity-transition", { duration: 0, delay: 0 });
+      m.setPaintProperty(back, "raster-opacity", 0);
+      m.setPaintProperty(back, "raster-resampling", resampling);
+      (m.getSource(back) as ImageSource).updateImage({ ...content, coordinates: coords });
+      m.setLayoutProperty(back, "visibility", "visible");
+      frontLayer.current = back;
+      shownKey.current = overlay.key;
+      clearTimeout(fadeTimer.current);
+      requestAnimationFrame(() => {
+        if (!m.getLayer(back) || !m.getLayer(front)) return;
+        m.setPaintProperty(back, "raster-opacity-transition", { duration: fade, delay: 0 });
+        m.setPaintProperty(front, "raster-opacity-transition", { duration: fade, delay: 0 });
+        m.setPaintProperty(back, "raster-opacity", opacity);
+        m.setPaintProperty(front, "raster-opacity", 0);
+      });
+      fadeTimer.current = setTimeout(() => {
+        if (frontLayer.current !== front && m.getLayer(front)) m.setLayoutProperty(front, "visibility", "none");
+      }, fade + 80);
+      return;
     }
-    m.setPaintProperty("measurement", "raster-opacity", props.opacity ?? 0.85);
-    m.setPaintProperty("measurement", "raster-resampling", overlay.smooth ? "linear" : "nearest");
+    // First picture, or the same one getting sharper (thumbnail to full image), or a new opacity.
+    ensure(front);
+    (m.getSource(front) as ImageSource).updateImage({ ...content, coordinates: coords });
+    m.setLayoutProperty(front, "visibility", "visible");
+    m.setPaintProperty(front, "raster-opacity-transition", { duration: 300, delay: 0 });
+    m.setPaintProperty(front, "raster-opacity", opacity);
+    m.setPaintProperty(front, "raster-resampling", resampling);
+    shownKey.current = overlay.key;
   }, [props.overlay?.key, props.overlay?.url, props.overlay?.image, props.opacity, ready]);
   const markerKey = (props.markers ?? []).map((k) => k.id).join("|");
   useEffect(() => {

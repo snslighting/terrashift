@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeftRight, ArrowRight, Pause, Play, RefreshCw, X } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Pause, Play, RefreshCw, X, ZoomIn, ZoomOut } from "lucide-react";
 import { asset } from "../lib/api";
-import { holdPreview, loadPreview, previewChoices, footprintBounds, footprintRing, type PreviewImage } from "../lib/browse";
+import { holdPreview, loadPreview, previewChoices, footprintBounds, footprintRing, PREFETCH_COUNT, type PreviewImage } from "../lib/browse";
+import { prefetchOrder } from "../lib/prefetch";
+import { clampView, HOME, zoomView, type View } from "../lib/zoomView";
 import { startPreview, stateFor, type PreviewState } from "../lib/previewRequest";
 import { geometries, placeStats, timeline } from "../lib/catalogStats";
 import { ladder, sameGeometry, trustLabels, type Trust } from "../lib/evidence";
@@ -87,6 +89,36 @@ export function usePreview(product: Product | undefined, choice: string) {
   const onScreen = state.status === "ready" ? state.image.id : state.status === "loading" ? state.thumb?.id : undefined;
   useEffect(() => (onScreen ? holdPreview(onScreen) : undefined), [onScreen]);
   return { state, retry: () => setAttempt((n) => n + 1) };
+}
+
+/**
+ * Prepare the neighbouring dates of a timeline in the background, nearest first and one at a time,
+ * once the open date's own picture is on screen. Stepping, playing or comparing then finds the
+ * pictures ready instead of downloading each one on demand. A failed warm-up is ignored: that date
+ * simply loads normally when it is opened.
+ */
+export function usePrefetch(series: Product[], active: Product | undefined, choice: string, ready: boolean) {
+  const index = active ? series.findIndex((p) => p.id === active.id) : -1;
+  useEffect(() => {
+    if (!ready || index < 0 || series.length < 2) return;
+    const controller = new AbortController();
+    const targets = prefetchOrder(series.length, index, PREFETCH_COUNT).map((i) => series[i]);
+    (async () => {
+      for (const p of targets) {
+        if (controller.signal.aborted) return;
+        if (p.cached_pair || !footprintBounds(p)) continue;
+        const options = previewChoices(p),
+          pick = options.find((o) => o.id === choice) ?? options[0];
+        if (!pick) continue;
+        try {
+          await loadPreview(pick.url, footprintRing(p), pick.native, { signal: controller.signal });
+        } catch {
+          /* cancelled, or NASA's server was slow: nothing to report */
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [active?.id, choice, ready, series]);
 }
 
 /** Image buttons for a product (combined, HH, HV, frequency A/B), with a reading guide. */
@@ -339,7 +371,48 @@ export function SwipeCompare({
     b = options.find((p) => p.id === bId) ?? start,
     A = usePreview(a, choice),
     B = usePreview(b, choice),
-    dialog = useRef<HTMLDivElement>(null);
+    dialog = useRef<HTMLDivElement>(null),
+    [view, setView] = useState<View>(HOME),
+    [mode, setMode] = useState<"swipe" | "fade" | "diff">("swipe"),
+    [mix, setMix] = useState(50),
+    stage = useRef<HTMLDivElement>(null),
+    drag = useRef<{ kind: "pan" | "split"; x: number; y: number; view: View } | null>(null);
+  const zoomBy = (factor: number, px?: number, py?: number) => {
+    const el = stage.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    setView((v) => zoomView(v, factor, px ?? width / 2, py ?? height / 2, width, height));
+  };
+  // The wheel zooms at the cursor. It needs a non-passive listener to stop the page from scrolling.
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      zoomBy(e.deltaY < 0 ? 1.25 : 0.8, e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => el.removeEventListener("wheel", wheel);
+  }, [options.length]);
+  const pointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = e.currentTarget,
+      r = el.getBoundingClientRect(),
+      nearLine = mode === "swipe" && Math.abs(e.clientX - (r.left + (r.width * split) / 100)) < 28;
+    drag.current = { kind: nearLine ? "split" : "pan", x: e.clientX, y: e.clientY, view };
+    el.setPointerCapture?.(e.pointerId);
+  };
+  const pointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    if (d.kind === "split") setSplit(Math.round(Math.min(100, Math.max(0, ((e.clientX - r.left) / r.width) * 100))));
+    else setView(clampView({ k: d.view.k, x: d.view.x + e.clientX - d.x, y: d.view.y + e.clientY - d.y }, r.width, r.height));
+  };
+  const pointerUp = () => {
+    drag.current = null;
+  };
+  const panStyle = { transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` };
   useEffect(() => {
     // Focus moves into the dialog, and back to what opened it when it closes.
     const opener = document.activeElement as HTMLElement | null;
@@ -403,38 +476,116 @@ export function SwipeCompare({
             unrelated to change.
           </p>
         ) : (
-          <div className="swipe-stage" style={{ aspectRatio: String(aspect || 1) }}>
-            {frame && imgB && (
-              <div className="swipe-layer">
-                <Placed image={imgB} frame={frame} />
-              </div>
-            )}
-            {frame && imgA && (
-              <div className="swipe-layer" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
-                <Placed image={imgA} frame={frame} />
-              </div>
-            )}
+          <>
+          <div className="swipe-tools" role="group" aria-label="Comparison view">
+            <div className="segmented" role="group" aria-label="How to compare">
+              <button className={mode === "swipe" ? "active" : ""} aria-pressed={mode === "swipe"} onClick={() => setMode("swipe")}>
+                Swipe
+              </button>
+              <button className={mode === "fade" ? "active" : ""} aria-pressed={mode === "fade"} onClick={() => setMode("fade")}>
+                Fade
+              </button>
+              <button className={mode === "diff" ? "active" : ""} aria-pressed={mode === "diff"} onClick={() => setMode("diff")}>
+                Difference
+              </button>
+            </div>
+            <div className="swipe-zoom">
+              <button onClick={() => zoomBy(0.8)} aria-label="Zoom out" disabled={view.k <= 1}>
+                <ZoomOut size={16} />
+              </button>
+              <span aria-live="polite">{view.k.toFixed(1)}×</span>
+              <button onClick={() => zoomBy(1.25)} aria-label="Zoom in" disabled={view.k >= 12}>
+                <ZoomIn size={16} />
+              </button>
+              <button onClick={() => setView(HOME)} disabled={view.k === 1 && view.x === 0 && view.y === 0}>
+                Reset
+              </button>
+            </div>
+          </div>
+          <div
+            ref={stage}
+            className="swipe-stage"
+            style={{ aspectRatio: String(aspect || 1), width: `min(100%, ${(72 * (aspect || 1)).toFixed(1)}vh)` }}
+            onPointerDown={pointerDown}
+            onPointerMove={pointerMove}
+            onPointerUp={pointerUp}
+            onPointerCancel={pointerUp}
+          >
+            <div className={`swipe-layers${mode === "diff" ? " diff" : ""}`}>
+              {frame && imgB && (
+                <div className="swipe-layer">
+                  <div className="swipe-pan" style={panStyle}>
+                    <Placed image={imgB} frame={frame} />
+                  </div>
+                </div>
+              )}
+              {frame && imgA && (
+                <div
+                  className="swipe-layer"
+                  style={
+                    mode === "swipe"
+                      ? { clipPath: `inset(0 ${100 - split}% 0 0)` }
+                      : mode === "fade"
+                        ? { opacity: 1 - mix / 100 }
+                        : { mixBlendMode: "difference" }
+                  }
+                >
+                  <div className="swipe-pan" style={panStyle}>
+                    <Placed image={imgA} frame={frame} />
+                  </div>
+                </div>
+              )}
+            </div>
             {(!imgA || !imgB) && (
               <div className="swipe-loading">
                 <RefreshCw size={16} className="spin" /> Loading NASA previews…
               </div>
             )}
-            <div className="swipe-line" style={{ left: `${split}%` }}>
-              <span>
-                <ArrowLeftRight size={16} />
-              </span>
-            </div>
+            {mode === "swipe" && (
+              <div className="swipe-line" style={{ left: `${split}%` }}>
+                <span>
+                  <ArrowLeftRight size={16} />
+                </span>
+              </div>
+            )}
             <span className="comparison-date left">{a.date}</span>
             <span className="comparison-date right">{b.date}</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={split}
-              onChange={(e) => setSplit(+e.target.value)}
-              aria-label="Move the divider between the two dates"
-            />
+            {mode === "swipe" && (
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={split}
+                onChange={(e) => setSplit(+e.target.value)}
+                aria-label="Move the divider between the two dates"
+              />
+            )}
           </div>
+          {mode === "fade" && (
+            <label className="swipe-mix">
+              <span>{a.date}</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={mix}
+                onChange={(e) => setMix(+e.target.value)}
+                aria-label="Fade between the two dates"
+              />
+              <span>{b.date}</span>
+            </label>
+          )}
+          {mode === "diff" && (
+            <p className="warning swipe-hint">
+              Difference of the two NASA preview pictures: bright places are where the two pictures differ,
+              dark places are where they look alike. It is a visual clue from colour-scaled previews, not a
+              measurement, and it does not say why a place differs.
+            </p>
+          )}
+          <p className="tiny swipe-hint">
+            Scroll or use the buttons to zoom, drag to move the picture{mode === "swipe" ? ", drag the handle to swipe" : ""}.
+          </p>
+          </>
         )}
         <p className="tiny">
           Only dates from the same track, frame and orbit direction can be compared. These are NASA's preview
